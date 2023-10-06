@@ -6,7 +6,7 @@ use sqlx::FromRow;
 /// Enum used for 'committee_meetings' to indicate directorship type
 #[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
 #[sqlx(type_name = "committees_enum")]
-pub enum DirectorshipType {
+pub enum CommitteeType {
     Evaluations,
     History,
     Social,
@@ -95,7 +95,7 @@ pub enum AttendanceStatus {
 ///
 /// Represents a row in the 'committee_meetings' table
 #[derive(FromRow, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
-pub struct Directorship {
+pub struct Committee {
     /// Unique id identifying a DirectorshipAttendance
     pub id: i32,
     /// The 'committee' or Directorship associated with this attendance.
@@ -178,7 +178,7 @@ pub struct FreshmanAccount {
 
 /// Row in the 'freshman_committee_attendance' table
 #[derive(FromRow, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
-pub struct FreshmanDirectorshipAttendance {
+pub struct FreshmanCommitteeAttendance {
     /// Unique id identifying this freshman's attendance
     pub id: i32,
     /// Foreign key into 'freshman_accounts' table for freshman ids
@@ -284,7 +284,7 @@ pub struct MajorProject {
 
 /// Row in 'member_committee_attendance'
 #[derive(FromRow, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
-pub struct MemberDirectorshipAttendance {
+pub struct MemberCommitteeAttendance {
     /// Unique id for this directorship attendance
     pub id: i32,
     /// Username of member who attended this meeting
