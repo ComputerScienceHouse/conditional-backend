@@ -7,7 +7,7 @@
 use chrono::{NaiveDate, NaiveDateTime};
 use sqlx::types::Json;
 
-use super::db::{AttendanceStatus, MajorProjectStatus};
+use super::db::AttendanceStatus;
 
 struct MeetingAttendance {
     name: String,
