@@ -216,6 +216,7 @@ pub struct FreshmanEvaluation {
     pub freshman_eval_result: FreshmanEvalStatus,
     /// Unknown. Usually true. TODO: Ask Jeremy if he knows what this might be
     /// because it's on a lot of tables and I don't know what it does anywhere
+    /// it does nothing lmao, im just making it true always
     pub active: Option<bool>,
 }
 
