@@ -8,12 +8,4 @@ pub mod schema {
     pub mod db;
 }
 
-pub mod api {
-    pub mod attendance {
-        pub mod routes;
-    }
-
-    pub mod forms {
-        pub mod routes;
-    }
-}
+pub mod api;
