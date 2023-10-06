@@ -8,9 +8,20 @@ use chrono::NaiveDateTime;
 use serde::Deserialize;
 use sqlx::types::Json;
 
-#[derive(Deserialize)]
-pub struct SeminarAttendance {
-    pub name: String,
-    pub date: NaiveDateTime,
-    pub body: Vec<String>,
+use super::db::AttendanceStatus;
+
+struct MeetingAttendance {
+    name: String,
+    date: NaiveDateTime,
+    body: Json<String>,
+}
+
+struct IndividualHouseAttendance {
+    name: String,
+    att_status: AttendanceStatus,
+}
+
+struct HouseAttendance {
+    date: NaiveDateTime,
+    body: Json<IndividualHouseAttendance>,
 }
