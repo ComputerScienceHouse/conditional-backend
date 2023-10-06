@@ -20,7 +20,7 @@ pub async fn submit_mproj(state: Data<AppState>, body: MajorProjectSubmission) -
     // TODO: slack ping
 }
 
-#[get("/form/mproj")]
+#[get("/forms/mproj")]
 pub async fn get_mprojs(state: Data<AppState>) -> impl Responder {
     match query_as!(MajorProject, "SELECT * FROM major_projects WHERE timestamp > $1", &state.year_start)
         .execute(&state.db)
@@ -31,7 +31,7 @@ pub async fn get_mprojs(state: Data<AppState>) -> impl Responder {
     }
 }
 
-#[put("/form/mproj/{id}")]
+#[put("/forms/mproj/{id}")]
 pub async fn edit_mproj(state: Data<AppState>, body: MajorProjectSubmission) -> impl Responder {
     // TODO: no editing if not pending
     let (id,) = path.into_inner();
@@ -45,7 +45,7 @@ pub async fn edit_mproj(state: Data<AppState>, body: MajorProjectSubmission) -> 
     }
 }
 
-#[put("/form/mproj-eboard/{id}")]
+#[put("/forms/mproj-eboard/{id}")]
 pub async fn edit_mproj(state: Data<AppState>, body: MajorProjectSubmissionEboard) -> impl Responder {
     let (id,) = path.into_inner();
     // TODO: fix date updating
@@ -54,6 +54,28 @@ pub async fn edit_mproj(state: Data<AppState>, body: MajorProjectSubmissionEboar
         .await
     {
         Ok(_) => HttpResponse::Ok(),
+        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+    }
+}
+
+#[post("/forms/coop")]
+pub async fn submit_coop(state: Data<AppState>, body: CoopSubmission) -> impl Responder {
+    match query!("INSERT INTO current_coops(uid, date_created, semester) VALUES ($1, $2, $3)", body.uid, body.date, body.semester)
+        .execute(&state.db)
+        .await
+    {
+        Ok(_) => HttpResponse::Ok(),
+        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+    }
+}
+
+#[get("/forms/coop")]
+pub async fn get_coops(state: Data<AppState>) -> impl Responder {
+    match query_as!(Coop, "SELECT * FROM major_project WHERE timestamp > $1", state.year_start)
+        .execute(&state.db)
+        .await
+    {
+        Ok(coops) => HttpResponse::Ok().json(coops),
         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
     }
 }

@@ -45,7 +45,10 @@ pub async fn get_seminars_by_user(state: Data<AppState>) -> impl Responder {
     if name.len() < 1 {
         return HttpResponse::BadRequest().body("No name found".to_string());
     }
-    match query_as!(Seminar, format!("SELECT * FROM {} WHERE approved = 'true' AND {} = $1 AND seminar_id IN (SELECT id FROM technical_seminars WHERE timestamp > ($2::timestamp))", if name.chars().next().is_numeric() { "freshman_seminar_attendance" } else { "member_seminar_attendance" }, if name.chars().next().is_numeric() { "fid" } else { "uid" }), body.name, &state.year_start)
+    match query_as!(Seminar, format!(
+        "SELECT * FROM {} WHERE approved = 'true' AND {} = $1 AND seminar_id IN (SELECT id FROM technical_seminars WHERE timestamp > ($2::timestamp))",
+        if name.chars().next().is_numeric() { "freshman_seminar_attendance" } else { "member_seminar_attendance" },
+        if name.chars().next().is_numeric() { "fid" } else { "uid" }), body.name, &state.year_start)
         .fetch_all(&state.db)
         .await
     {
