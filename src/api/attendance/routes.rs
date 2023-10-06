@@ -1,13 +1,16 @@
+use crate::app::AppState;
+use crate::schema::api::*;
+use crate::schema::db::*;
 use actix_web::{
-    get, post,
+    delete, get, post, put,
     web::{Data, Json, Path},
     HttpResponse, Responder,
 };
+use log::{log, Level};
 use serde_json::json;
+use sqlx::postgres::any::AnyConnectionBackend;
 use sqlx::{query, query_as};
-use crate::schema::db;
-mod schema;
-
+/*
 #[post("/attendance/seminar")]
 pub async fn submit_seminar_attendance(state: Data<AppState>, body: MeetingAttendance) -> impl Responder {
     // TODO: eboard should auto approve
@@ -23,7 +26,7 @@ pub async fn submit_seminar_attendance(state: Data<AppState>, body: MeetingAtten
     let (frosh, members): (Vec<_>, Vec<_>) = usernames
         .into_iter()
         .partition(|username| {
-            let c = a.chars().next();
+            let c = username.chars().next();
             if c.is_some() {
                 c.unwrap().is_numeric()
             }
@@ -37,11 +40,126 @@ pub async fn submit_seminar_attendance(state: Data<AppState>, body: MeetingAtten
             Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
         }
 }
+*/
 
+#[post("/attendance/seminar")]
+pub async fn submit_seminar_attendance(
+    state: Data<AppState>,
+    body: Json<MeetingAttendance>,
+) -> impl Responder {
+    log!(Level::Info, "POST /attendance/seminar");
+    let transaction = match state.db.try_begin().await {
+        Ok(Some(t)) => t,
+        Err(e) => {
+            log!(Level::Error, "Failed to acquire DB Transaction: {}", e);
+            return HttpResponse::InternalServerError().body(e.to_string());
+        }
+        _ => {
+            log!(
+                Level::Error,
+                "Failed to acquire DB Transaction: Transaction was None"
+            );
+            return HttpResponse::InternalServerError().body("Internal Database Error");
+        }
+    };
+    log!(Level::Trace, "Acquired transaction");
+
+    struct ID {
+        id: i32,
+    }
+
+    // Add new attendance to seminar db
+    let id: i32 = match query_as!(ID, "INSERT INTO technical_seminars (name, timestamp, active, approved) VALUES ($1, $2, $3, $4) RETURNING id", body.name, body.date, true, false)
+        .fetch_one(&state.db).await {
+        Ok(i) => i.id,
+        Err(e) => {
+            log!(Level::Warn, "Failed to update technical_seminars table: {}", e);
+            match transaction.rollback().await {
+                Ok(_) => {},
+                Err(e) => {
+                    log!(Level::Error, "Transaction failed to roll back: {}", e);
+                    return HttpResponse::InternalServerError()
+                        .body("Transaction failed to rollback. Possible dangling connection");
+                }
+            }
+            return HttpResponse::InternalServerError().body("Internal Database Error");
+        }
+    };
+    log!(Level::Debug, "Inserted meeting into db. ID={}", id);
+
+    let frosh_id = vec![id; body.frosh.len()];
+    let member_id = vec![id; body.members.len()];
+
+    // Update frosh attendance table
+    match query!(
+        "INSERT INTO freshman_seminar_attendance (fid, seminar_id) SELECT fid, seminar_id FROM UNNEST($1::int4[], $2::int4[]) as a(fid, seminar_id)",
+        body.frosh.as_slice(),
+        frosh_id.as_slice(),
+    )
+    .execute(&state.db)
+    .await
+    {
+        Ok(_) => {}
+        Err(e) => {
+            log!(
+                Level::Warn,
+                "Failed to update freshman_seminar_attendance table: {}",
+                e
+            );
+            match transaction.rollback().await {
+                Ok(_) => {}
+                Err(e) => {
+                    log!(Level::Error, "Transaction failed to roll back: {}", e);
+                    return HttpResponse::InternalServerError()
+                        .body("Transaction failed to rollback. Possible dangling connection");
+                }
+            }
+            return HttpResponse::InternalServerError().body("Internal Database Error");
+        }
+    }
+
+    // Update member attendance table
+    match query!(
+        "INSERT INTO member_seminar_attendance (uid, seminar_id) SELECT uid, seminar_id FROM UNNEST($1::text[], $2::int4[]) as a(uid, seminar_id)",
+        body.members.as_slice(),
+        member_id.as_slice()
+    )
+    .execute(&state.db)
+    .await
+    {
+        Ok(_) => {}
+        Err(e) => {
+            log!(
+                Level::Warn,
+                "Failed to update member_seminar_attendance table: {}",
+                e
+            );
+            match transaction.rollback().await {
+                Ok(_) => {}
+                Err(e) => {
+                    log!(Level::Error, "Transaction failed to roll back: {}", e);
+                    return HttpResponse::InternalServerError()
+                        .body("Transaction failed to rollback. Possible dangling connection");
+                }
+            }
+            return HttpResponse::InternalServerError().body("Internal Database Error");
+        }
+    }
+
+    match transaction.commit().await {
+        Ok(_) => HttpResponse::Ok().body(""),
+        Err(e) => {
+            log!(Level::Error, "Transaction failed to commit");
+            HttpResponse::InternalServerError().body(e.to_string())
+        }
+    }
+}
+
+/*
 #[get("/attendance/seminar/{user}")]
 pub async fn get_seminars_by_user(state: Data<AppState>) -> impl Responder {
     // TODO: authenticate with token
-    let (name,) = path.into_inner();
+    let (name,) = user;
     if name.len() < 1 {
         return HttpResponse::BadRequest().body("No name found".to_string());
     }
@@ -209,7 +327,7 @@ pub async fn delete_committee(state: Data<AppState>) -> impl Responder {
 }
 
 #[post("attendance/house")]
-pub async fn submit_hm_attendance(state: Data<AppState>, body: HouseAttendance) {
+pub async fn submit_hm_attendance(state: Data<AppState>, body: HouseAttendance) -> impl Responder {
     let id = match query_as!(i32, "INSERT INTO house_meetings(date, active) OUTPUT INSERTED.id VALUES ($1::timestamp, true)", body.date)
         .fetch_one(&state.db)
         .await
@@ -277,7 +395,7 @@ pub async fn get_hm_attendance_by_user(state: Data<AppState>) -> impl Responder 
 // where is this used
 
 #[put("/attendance/house/{id}")]
-pub async fn update_hm_attendance(state: Data<AppState>, body: IndividualHouseAttendance) {
+pub async fn update_hm_attendance(state: Data<AppState>, body: IndividualHouseAttendance) -> impl Responder {
     let (id,) = path.into_inner();
     let table = if user.chars().next().unwrap().is_numeric() { "freshman_hm_attendance" } else { "member_hm_attendance" };
     let id_col_name = if user.chars().next().unwrap().is_numeric() { "fid" } else { "uid" };
@@ -286,18 +404,19 @@ pub async fn update_hm_attendance(state: Data<AppState>, body: IndividualHouseAt
         .await
     {
         Ok(_) => HttpResponse::Ok(),
-        Err(e) => HttpResponse::InternalServerError().body(e.to_string()), 
+        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
     }
 }
 
 #[delete("/attendance/house/{id}")]
-pub async fn delete_hm(state: Data<AppState>) {
+pub async fn delete_hm(state: Data<AppState>) -> impl Responder {
     let (id,) = path.into_inner();
     match query!("DELETE FROM freshman_hm_attendance WHERE meeting_id = $1; DELETE FROM member_hm_attendance WHERE meeting_id = $2; DELETE FROM house_meetings WHERE id = #3", id, id, id)
         .execute(&state.db)
         .await
     {
         Ok(_) => HttpResponse::Ok(),
-        Err(e) => HttpResponse::InternalServerError().body(e.to_string()), 
+        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
     }
 }
+*/

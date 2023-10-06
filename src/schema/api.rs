@@ -4,25 +4,28 @@
 // names / usernames, while directorship attendance is stored in the database
 // as relations in one of two tables
 
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::NaiveDateTime;
+use serde::{Deserialize, Serialize};
 use sqlx::types::Json;
 
 use super::db::{AttendanceStatus, CoopSemester, MajorProjectStatus};
 
-struct MeetingAttendance {
-    name: String,
-    date: NaiveDateTime,
-    body: Json<String>,
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct MeetingAttendance {
+    pub name: String,
+    pub date: NaiveDateTime,
+    pub members: Vec<String>,
+    pub frosh: Vec<i32>,
 }
 
-struct IndividualHouseAttendance {
-    name: String,
-    att_status: AttendanceStatus,
+pub struct IndividualHouseAttendance {
+    pub name: String,
+    pub att_status: AttendanceStatus,
 }
 
-struct HouseAttendance {
-    date: NaiveDateTime,
-    body: Json<IndividualHouseAttendance>,
+pub struct HouseAttendance {
+    pub date: NaiveDateTime,
+    pub body: Json<IndividualHouseAttendance>,
 }
 
 pub struct MajorProjectSubmission {

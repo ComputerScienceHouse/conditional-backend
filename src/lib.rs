@@ -1,3 +1,5 @@
+pub mod app;
+
 /// Data structure for API routes and DB access
 pub mod schema {
     /// Schema returned and consumed by the API
@@ -6,5 +8,12 @@ pub mod schema {
     pub mod db;
 }
 
-//// Internal routes to access the conditional database, separated by table
-// pub mod table;
+pub mod api {
+    pub mod attendance {
+        pub mod routes;
+    }
+
+    pub mod forms {
+        pub mod routes;
+    }
+}
