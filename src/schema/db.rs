@@ -157,7 +157,8 @@ pub struct Coop {
 #[derive(FromRow, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
 pub struct FreshmanAccount {
     /// Unique id identifying this freshman account (may be the same as packet
-    /// id? TODO: Confirm).
+    /// id? TODO: Confirm). lmao no bozo
+    /// that would be too easy
     pub id: i32,
     /// The legal name of the freshman
     pub name: String,

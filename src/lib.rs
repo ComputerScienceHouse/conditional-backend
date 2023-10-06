@@ -6,5 +6,5 @@ pub mod schema {
     pub mod db;
 }
 
-/// Internal routes to access the conditional database, separated by table
-pub mod table;
+//// Internal routes to access the conditional database, separated by table
+// pub mod table;

@@ -4,10 +4,10 @@
 // names / usernames, while directorship attendance is stored in the database
 // as relations in one of two tables
 
-use chrono::{NaiveDateTime, NaiveDate};
+use chrono::{NaiveDate, NaiveDateTime};
 use sqlx::types::Json;
 
-use super::db::{AttendanceStatus, MajorProjectStatus};
+use super::db::{AttendanceStatus, CoopSemester, MajorProjectStatus};
 
 struct MeetingAttendance {
     name: String,
@@ -26,8 +26,6 @@ struct HouseAttendance {
 }
 
 pub struct MajorProjectSubmission {
-    /// Unique id for this major project
-    pub id: i32,
     /// Username of member who submitted this major project
     pub uid: String,
     /// Name of this major project
@@ -37,8 +35,6 @@ pub struct MajorProjectSubmission {
 }
 
 pub struct MajorProjectSubmissionEboard {
-    /// Unique id for this major project
-    pub id: i32,
     /// Username of member who submitted this major project
     pub uid: String,
     /// Name of this major project
@@ -47,4 +43,10 @@ pub struct MajorProjectSubmissionEboard {
     pub description: Option<String>,
     /// idk something fs
     pub status: MajorProjectStatus,
+}
+
+pub struct CoopSubmission {
+    pub uid: String,
+    pub date: NaiveDateTime,
+    pub semester: CoopSemester,
 }
