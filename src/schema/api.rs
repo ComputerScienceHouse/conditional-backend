@@ -7,8 +7,20 @@
 use chrono::NaiveDateTime;
 use sqlx::types::Json;
 
-struct SeminarAttendance {
+use super::db::AttendanceStatus;
+
+struct MeetingAttendance {
     name: String,
     date: NaiveDateTime,
     body: Json<String>,
+}
+
+struct IndividualHouseAttendance {
+    name: String,
+    att_status: AttendanceStatus,
+}
+
+struct HouseAttendance {
+    date: NaiveDateTime,
+    body: Json<IndividualHouseAttendance>,
 }
