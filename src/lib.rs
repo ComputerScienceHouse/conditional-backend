@@ -1,3 +1,5 @@
+pub mod app;
+
 /// Data structure for API routes and DB access
 pub mod schema {
     /// Schema returned and consumed by the API
@@ -5,8 +7,14 @@ pub mod schema {
     /// Schema retrieved from and written to the DB
     pub mod db;
 }
-pub mod attendance {
-    pub mod routes;
+pub mod api {
+    pub mod attendance {
+        pub mod routes;
+    }
+
+    pub mod forms {
+        pub mod routes;
+    }
 }
 
 /// Utility functions
