@@ -1,6 +1,7 @@
 use crate::api::{log_query, log_query_as, open_transaction};
 use crate::app::AppState;
 use crate::schema::api::*;
+use crate::schema::db::*;
 use actix_web::{
     delete, get, post, put,
     web::{Data, Json, Path},
@@ -95,7 +96,49 @@ pub async fn get_seminars_by_user(state: Data<AppState>) -> impl Responder {
         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
     }
 }
+*/
 
+#[get("/attendance/seminar/{user}")]
+pub async fn get_seminars_by_user(path: Path<(String, String)>, state: Data<AppState>) -> impl Responder {
+    let (user,_) = path.into_inner();
+    log!(Level::Info, "GET /attendance/seminar/{}", user);
+    let transaction = match open_transaction(&state.db).await {
+        Ok(t) => t,
+        Err(res) => return res,
+    };
+    log!(Level::Trace, "Acquired transaction");
+
+    match user.chars().next().unwrap().is_numeric() {
+        true => {
+            let user: Result<i32, _> = user.parse();
+            if user.is_err() {
+                log!(Level::Warn, "Invalid freshman username");
+            }
+            match log_query_as(query_as!(FreshmanSeminarAttendance, "SELECT * FROM freshman_seminar_attendance WHERE fid = $1 AND seminar_id IN (SELECT id FROM technical_seminars WHERE approved = 'true' AND  timestamp > $2)", user.unwrap(), &state.year_start) 
+                .fetch_all(&state.db)
+                .await, transaction).await
+            {
+                Ok((_, seminars)) => {
+                    HttpResponse::Ok().json(seminars)
+                }
+                Err(e) => return e,
+            }
+        },
+        false => {
+            match log_query_as(query_as!(MemberSeminarAttendance, "SELECT * FROM member_seminar_attendance WHERE uid = $1 AND seminar_id IN (SELECT id FROM technical_seminars WHERE approved = 'true' AND  timestamp > $2)", user, &state.year_start) 
+                .fetch_all(&state.db)
+                .await, transaction).await
+            {
+                Ok((_, seminars)) => {
+                    HttpResponse::Ok().json(seminars)
+                }
+                Err(e) => return e,
+            }
+        }
+    }
+}
+
+/*
 #[get("/attendance/seminar")]
 pub async fn get_seminars(state: Data<AppState>) -> impl Responder {
     // TODO: Joe: year_start should be the day the new year button was pressed by Evals, formatted for postgres
@@ -137,7 +180,9 @@ pub async fn put_seminar(state: Data<AppState>, body: Json<String>) -> impl Resp
 #[delete("/attendance/seminar/{id}")]
 pub async fn delete_seminar(state: Data<AppState>) -> impl Responder {
     let (id,) = path.into_inner();
-    match query!("DELETE FROM freshman_seminar_attendance WHERE seminar_id = ($1::int4); DELETE FROM member_seminar_attendance WHERE seminar_id = ($2::int4); DELETE FROM technical_seminars WHERE id = ($3::int4);", id, id, id)
+    match query!("DELETE FROM freshman_seminar_attendance WHERE seminar_id = ($1::int4); 
+    DELETE FROM member_seminar_attendance WHERE seminar_id = ($2::int4); 
+    DELETE FROM technical_seminars WHERE id = ($3::int4);", id, id, id)
         .execute(&state.db)
         .await
     {
@@ -145,6 +190,54 @@ pub async fn delete_seminar(state: Data<AppState>) -> impl Responder {
         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
     }
 }
+
+*/
+
+#[delete("/attedance/seminar/{id}")]
+pub async fn delete_seminar(path: Path<(String, String)>, state: Data<AppState>) -> impl Responder {
+    let (id,_) = path.into_inner();
+    log!(Level::Info, "DELETE /attedance/seminar/{id}");
+    let id = id.parse::<i32>();
+    if id.is_err() {
+        log!(Level::Warn, "Invalid id");
+        return HttpResponse::BadRequest().body("Invalid id");
+    }
+    let id  = id.unwrap();
+    let mut transaction = match open_transaction(&state.db).await {
+        Ok(t) => t,
+        Err(res) => return res,
+    };
+    log!(Level::Trace, "Acquired transaction");
+    match log_query(query!("DELETE FROM freshman_seminar_attendance WHERE seminar_id = $1", id).execute(&state.db).await.map(|_| ()), transaction).await {
+        Ok(tx) => {
+            transaction = tx;
+        }
+        Err(res) => return res,
+    }
+    match log_query(query!("DELETE FROM member_seminar_attendance WHERE seminar_id = $1", id).execute(&state.db).await.map(|_| ()), transaction).await {
+        Ok(tx) => {
+            transaction = tx;
+        }
+        Err(res) => return res,
+    }
+    match log_query(query!("DELETE FROM technical_seminars WHERE id = $1", id).execute(&state.db).await.map(|_| ()), transaction).await {
+        Ok(tx) => {
+            transaction = tx;
+        }
+        Err(res) => return res,
+    }
+
+    log!(Level::Trace, "Finished deleting seminar");
+    match transaction.commit().await {
+        Ok(_) => HttpResponse::Ok().body(""),
+        Err(e) => {
+            log!(Level::Error, "Transaction failed to commit");
+            HttpResponse::InternalServerError().body(e.to_string())
+        }
+    }
+}
+
+/*
 
 // TODO: Joe: committee is used over directorship to maintain parity with db
 #[post("/attendance/committee")]
