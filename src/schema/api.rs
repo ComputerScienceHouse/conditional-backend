@@ -50,3 +50,9 @@ pub struct CoopSubmission {
     pub date: NaiveDateTime,
     pub semester: CoopSemester,
 }
+
+pub struct IntroFormSubmission {
+    pub uid: String,
+    pub social_events: String,
+    pub comments: String,
+}
