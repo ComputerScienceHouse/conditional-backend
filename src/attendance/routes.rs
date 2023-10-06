@@ -20,18 +20,14 @@ pub async fn submit_seminar_attendance(state: Data<AppState>, body: SeminarAtten
     };
 
     let usernames: Vec<&String> = body.body.iter();
-    let frosh: Vec<u32> = usernames.filter(|a| {
-        let c = a.chars().next();
-        if c.is_some() {
-            c.unwrap().is_numeric()
-        }
-    }).map(|a| *a.parse()).collect();
-    let members = usernames.filter(|a| {
-        let c = a.chars().next();
-        if c.is_some() {
-            !c.unwrap().is_numeric()
-        }
-    }).collect::<Vec<_>>();
+    let (frosh, members): (Vec<_>, Vec<_>) = usernames
+        .into_iter()
+        .partition(|username| {
+            let c = a.chars().next();
+            if c.is_some() {
+                c.unwrap().is_numeric()
+            }
+        });
     let seminar_id_vec = vec![id; usernames.len()];
     match query!("DELETE FROM freshman_seminar_attendance WHERE seminar_id = ($1::i32); DELETE FROM member_seminar_attendance WHERE seminar_id = ($2::i32); INSERT INTO freshman_seminar_attendance(fid, seminar_id) SELECT * FROM UNNEST($3::int4[], $4::int4[]); INSERT INTO member_seminar_attendance(uid, seminar_id) SELECT * FROM UNNEST($5::text[], $6::int4[]);", id, id, frosh, seminar_id_vec, members, seminar_id_vec)
         .execute(&state.db)
