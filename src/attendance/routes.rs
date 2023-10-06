@@ -7,12 +7,13 @@ use actix_web::{
     HttpResponse, Responder,
 };
 // use serde_json::json;
+use crate::models::{AppState, ID};
 use sqlx::{query, query_as};
 
 #[post("/attendance/seminar")]
 pub async fn submit_seminar_attendance(state: Data<AppState>, body: MeetingAttendance) -> impl Responder {
     // TODO: eboard should auto approve
-    let id = match query_as!(i32, "INSERT INTO technical_seminars(name, timestamp, active, approved) OUTPUT INSERTED.id VALUES ($1::varchar(128), $2::timestamp, true, $3::bool", body.name, body.date, false)
+    let id = match query_as!(ID, "INSERT INTO technical_seminars(name, timestamp, active, approved) VALUES ($1::varchar(128), $2::timestamp, true, $3::bool) RETURNING technical_seminars.id", body.name, body.date, false)
         .fetch_one(&state.db)
         .await
     {

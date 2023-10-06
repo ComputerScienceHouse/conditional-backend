@@ -12,5 +12,7 @@ pub mod attendance {
 /// Utility functions
 pub mod util;
 
+pub mod models;
+
 // Internal routes to access the conditional database, separated by table
 // pub mod table;
