@@ -9,6 +9,7 @@ pub struct AppState {
     pub db: Pool<Postgres>,
     pub year_start: chrono::NaiveDateTime,
 }
+// use utoipa::OpenApi;
 
 pub async fn get_app_data() -> Data<AppState> {
     let pool = PgPoolOptions::new()
