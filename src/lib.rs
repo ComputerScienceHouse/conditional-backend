@@ -5,6 +5,12 @@ pub mod schema {
     /// Schema retrieved from and written to the DB
     pub mod db;
 }
+pub mod attendance {
+    pub mod routes;
+}
 
-/// Internal routes to access the conditional database, separated by table
-pub mod table;
+/// Utility functions
+pub mod util;
+
+// Internal routes to access the conditional database, separated by table
+// pub mod table;

@@ -5,10 +5,12 @@
 // as relations in one of two tables
 
 use chrono::NaiveDateTime;
+use serde::Deserialize;
 use sqlx::types::Json;
 
-struct SeminarAttendance {
-    name: String,
-    date: NaiveDateTime,
-    body: Json<String>,
+#[derive(Deserialize)]
+pub struct SeminarAttendance {
+    pub name: String,
+    pub date: NaiveDateTime,
+    pub body: Vec<String>,
 }
