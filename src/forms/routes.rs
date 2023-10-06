@@ -79,3 +79,4 @@ pub async fn get_coops(state: Data<AppState>) -> impl Responder {
         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
     }
 }
+
