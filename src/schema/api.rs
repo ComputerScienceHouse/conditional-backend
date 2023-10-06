@@ -4,7 +4,7 @@
 // names / usernames, while directorship attendance is stored in the database
 // as relations in one of two tables
 
-use chrono::NaiveDateTime;
+use chrono::{NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 use sqlx::types::Json;
 
@@ -58,4 +58,28 @@ pub struct IntroFormSubmission {
     pub uid: String,
     pub social_events: String,
     pub comments: String,
+}
+
+pub struct MajorProjectSubmission {
+    /// Unique id for this major project
+    pub id: i32,
+    /// Username of member who submitted this major project
+    pub uid: String,
+    /// Name of this major project
+    pub name: String,
+    /// Description of this major project
+    pub description: Option<String>,
+}
+
+pub struct MajorProjectSubmissionEboard {
+    /// Unique id for this major project
+    pub id: i32,
+    /// Username of member who submitted this major project
+    pub uid: String,
+    /// Name of this major project
+    pub name: String,
+    /// Description of this major project
+    pub description: Option<String>,
+    /// idk something fs
+    pub status: MajorProjectStatus,
 }
