@@ -120,15 +120,16 @@ pub async fn get_seminars_by_user(
                 return HttpResponse::BadRequest().body("Invalid id");
             }
         };
-        match log_query_as(query_as!(
-            Seminar,
-            "select ts.name, ts.\"timestamp\", array[]::varchar[] as members, array[]::integer[] as frosh from
-            technical_seminars ts 
-            left join freshman_seminar_attendance fsa on fsa.seminar_id  = ts.id
-            where 
-                ts.approved
-                and timestamp > $1::timestamp
-                and fsa.fid = $2::int4",
+        match log_query_as(
+            query_as!(
+                Seminar,
+                "select ts.name, ts.\"timestamp\", array[]::varchar[] AS members, ARRAY[]::integer[] AS frosh
+                    FROM technical_seminars ts
+                    LEFT JOIN freshman_seminar_attendance fsa ON
+                    fsa.seminar_id = ts.id
+                    WHERE ts.approved
+                    AND ts.\"timestamp\" > $1::timestamp
+                    AND fsa.fid = $2::int4",
                 &state.year_start,
                 user
             )
