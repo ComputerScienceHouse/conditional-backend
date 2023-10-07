@@ -40,6 +40,8 @@ pub async fn submit_hm_attendance(state: Data<AppState>, body: Json<HouseAttenda
     let member_id = vec![id; body.members.len()];
     let frosh_names: Vec<i32> = body.frosh.iter().map(|a| a.name).collect();
     let frosh_statuses: Vec<AttendanceStatus> = body.frosh.iter().map(|a| a.att_status).collect();
+    let member_names: Vec<i32> = body.frosh.iter().map(|a| a.name).collect();
+    let member_statuses: Vec<AttendanceStatus> = body.frosh.iter().map(|a| a.att_status).collect();
 
     match log_query(
         query!("INSERT INTO freshman_hm_attendance (fid, meeting_id, attendance_status) SELECT fid, meeting_id, attendance_status as \"attendance_status: AttendanceStatus\" FROM UNNEST($1::int4[], $2::int4[], $3::attendance_enum[]) as a(fid, meeting_id, attendance_status)", frosh_names.as_slice(), frosh_id.as_slice(), frosh_statuses.as_slice() as &[AttendanceStatus])
@@ -47,6 +49,13 @@ pub async fn submit_hm_attendance(state: Data<AppState>, body: Json<HouseAttenda
         Ok(tx) => transaction = tx.unwrap(),
         Err(res) => return res,
     }
+match log_query(
+    query!("INSERT INTO member_hm_attendance (uid, meeting_id, attendance_status) SELECT uid, meeting_id, attendance_status as \"attendance_status: AttendanceStatus\" FROM UNNEST($1::int4[], $2::int4[], $3::attendance_enum[]) as a(uid, meeting_id, attendance_status)", member_names.as_slice(), member_id.as_slice(), member_statuses.as_slice() as &[AttendanceStatus])
+    .execute(&state.db).await.map(|_| ()), Some(transaction)).await {
+    Ok(tx) => transaction = tx.unwrap(),
+    Err(res) => return res,
+}
+
 
     // Commit transaction
     match transaction.commit().await {

@@ -3,9 +3,9 @@ use log::{log, Level};
 use sqlx::{Error, Pool, Postgres, Transaction};
 
 pub mod attendance {
+    pub mod seminar;
     pub mod directorship;
     pub mod house;
-    pub mod routes;
 }
 
 pub mod forms {

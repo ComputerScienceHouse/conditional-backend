@@ -1,4 +1,4 @@
-use crate::api::attendance::{directorship::*, routes::*};
+use crate::api::attendance::{directorship::*, seminar::*, house::*};
 use crate::schema::{
     api::{Directorship, MeetingAttendance, Seminar},
     db::CommitteeType,
@@ -52,7 +52,9 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             .service(get_directorships_by_user)
             .service(get_directorships)
             .service(delete_directorship)
-            .service(edit_directorship_attendance),
+            .service(edit_directorship_attendance)
+            // House meeting routes
+            .service(submit_hm_attendance)
     )
     .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));
 }
