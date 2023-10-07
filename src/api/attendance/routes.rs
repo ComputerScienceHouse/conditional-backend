@@ -54,7 +54,8 @@ pub async fn submit_seminar_attendance(
     // Add frosh, seminar relation
     match log_query(
         query!(
-            "INSERT INTO freshman_seminar_attendance (fid, seminar_id) SELECT fid, seminar_id
+            "INSERT INTO freshman_seminar_attendance (fid, seminar_id)
+                SELECT fid, seminar_id
                 FROM UNNEST($1::int4[], $2::int4[]) AS a(fid, seminar_id)",
             body.frosh.as_slice(),
             frosh_id.as_slice()
@@ -75,7 +76,8 @@ pub async fn submit_seminar_attendance(
     // Add member, seminar relation
     match log_query(
         query!(
-            "INSERT INTO member_seminar_attendance (uid, seminar_id) SELECT uid, seminar_id
+            "INSERT INTO member_seminar_attendance (uid, seminar_id)
+                SELECT uid, seminar_id
                 FROM UNNEST($1::TEXT[], $2::int4[]) AS a(uid, seminar_id)",
             body.members.as_slice(),
             member_id.as_slice()
@@ -119,10 +121,14 @@ pub async fn get_seminars_by_user(path: Path<(String,)>, state: Data<AppState>) 
         match log_query_as(
             query_as!(
                 Seminar,
-                "SELECT ts.name, ts.\"timestamp\", ARRAY[]::varchar[] AS members, ARRAY[]::integer[] AS frosh, ts.approved
+                "SELECT ts.name,
+                        ts.\"timestamp\",
+                        ARRAY[]::varchar[] AS members,
+                        ARRAY[]::integer[] AS frosh,
+                        ts.approved
                     FROM technical_seminars ts
                     LEFT JOIN freshman_seminar_attendance fsa ON
-                    fsa.seminar_id = ts.id
+                        fsa.seminar_id = ts.id
                     WHERE ts.approved
                     AND timestamp > $1::timestamp
                     AND fsa.fid = $2::int4",
@@ -142,10 +148,14 @@ pub async fn get_seminars_by_user(path: Path<(String,)>, state: Data<AppState>) 
         match log_query_as(
             query_as!(
                 Seminar,
-                "SELECT ts.name, ts.\"timestamp\", ARRAY[]::varchar[] AS members, ARRAY[]::integer[] AS frosh, ts.approved
+                "SELECT ts.name,
+                        ts.\"timestamp\",
+                        ARRAY[]::varchar[] AS members,
+                        ARRAY[]::integer[] AS frosh,
+                        ts.approved
                     FROM technical_seminars ts
                     LEFT JOIN member_seminar_attendance msa ON
-                    msa.seminar_id = ts.id
+                        msa.seminar_id = ts.id
                     WHERE ts.approved
                     AND timestamp > $1::timestamp
                     AND msa.uid = $2",
@@ -169,15 +179,19 @@ pub async fn get_seminars(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "GET /attendance/seminar");
     match query_as!(
         Seminar,
-        "SELECT member_seminars.name, member_seminars.timestamp, member_seminars.members, array_agg(fsa.fid) AS frosh, member_seminars.approved
+        "SELECT member_seminars.name,
+                member_seminars.timestamp,
+                member_seminars.members,
+                array_agg(fsa.fid) AS frosh,
+                member_seminars.approved
             FROM(SELECT ts.id, ts.name, ts.timestamp, array_agg(msa.uid) AS members, ts.approved
-            FROM technical_seminars ts
-            INNER JOIN member_seminar_attendance msa ON
-            msa.seminar_id = ts.id
-            WHERE timestamp > $1::timestamp
-            GROUP BY ts.id, ts.name, ts.\"timestamp\", ts.approved) AS member_seminars
+                 FROM technical_seminars ts
+                 INNER JOIN member_seminar_attendance msa ON
+                     msa.seminar_id = ts.id
+                 WHERE timestamp > $1::timestamp
+                 GROUP BY ts.id, ts.name, ts.\"timestamp\", ts.approved) AS member_seminars
             INNER JOIN freshman_seminar_attendance fsa ON
-            fsa.seminar_id = member_seminars.id
+                fsa.seminar_id = member_seminars.id
             GROUP BY member_seminars.id, member_seminars.name, member_seminars.timestamp, member_seminars.members, member_seminars.approved",
         &state.year_start
     )
@@ -325,7 +339,8 @@ pub async fn edit_seminar_attendance(
     // Add frosh, seminar relation
     match log_query(
         query!(
-            "INSERT INTO freshman_seminar_attendance (fid, seminar_id) SELECT fid, seminar_id
+            "INSERT INTO freshman_seminar_attendance (fid, seminar_id)
+                SELECT fid, seminar_id
                 FROM UNNEST($1::int4[], $2::int4[]) AS a(fid, seminar_id)",
             body.frosh.as_slice(),
             frosh_id.as_slice()
@@ -346,7 +361,8 @@ pub async fn edit_seminar_attendance(
     // Add member, seminar relation
     match log_query(
         query!(
-            "INSERT INTO member_seminar_attendance (uid, seminar_id) SELECT uid, seminar_id
+            "INSERT INTO member_seminar_attendance (uid, seminar_id)
+                SELECT uid, seminar_id
                 FROM UNNEST($1::TEXT[], $2::int4[]) AS a(uid, seminar_id)",
             body.members.as_slice(),
             member_id.as_slice()

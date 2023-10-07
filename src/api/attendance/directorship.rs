@@ -28,8 +28,8 @@ pub async fn submit_directorship_attendance(
     match log_query_as(
         query_as!(
             ID,
-            "INSERT INTO committee_meetings (committee, timestamp, active, approved) VALUES \
-             ($1::committees_enum, $2, $3, $4) RETURNING id",
+            "INSERT INTO committee_meetings (committee, \"timestamp\", active, approved)
+                VALUES ($1::committees_enum, $2, $3, $4) RETURNING id",
             body.committee as CommitteeType,
             body.timestamp,
             true,
@@ -55,8 +55,9 @@ pub async fn submit_directorship_attendance(
     // Add frosh, directorship relation
     match log_query(
         query!(
-            "INSERT INTO freshman_committee_attendance (fid, meeting_id) SELECT fid, meeting_id \
-             FROM UNNEST($1::int4[], $2::int4[]) as a(fid, meeting_id)",
+            "INSERT INTO freshman_committee_attendance (fid, meeting_id)
+                SELECT fid, meeting_id
+                FROM UNNEST($1::int4[], $2::int4[]) AS a(fid, meeting_id)",
             body.frosh.as_slice(),
             frosh_id.as_slice()
         )
@@ -73,8 +74,9 @@ pub async fn submit_directorship_attendance(
 
     match log_query(
         query!(
-            "INSERT INTO member_committee_attendance (uid, meeting_id) SELECT uid, meeting_id \
-             FROM UNNEST($1::text[], $2::int4[]) as a(uid, meeting_id)",
+            "INSERT INTO member_committee_attendance (uid, meeting_id)
+                SELECT uid, meeting_id
+                FROM UNNEST($1::TEXT[], $2::int4[]) AS a(uid, meeting_id)",
             body.members.as_slice(),
             member_id.as_slice()
         )
@@ -114,14 +116,17 @@ pub async fn get_directorships_by_user(
         match log_query_as(
             query_as!(
                 Directorship,
-                "select cm.committee as \"committee:_\", cm.\"timestamp\", array[]::varchar[] as \
-                 members, array[]::integer[] as frosh, cm.approved from
-            committee_meetings cm 
-            left join freshman_committee_attendance fca on fca.meeting_id  = cm.id
-            where 
-                cm.approved
-                and timestamp > $1::timestamp
-                and fca.fid = $2::int4",
+                "SELECT cm.committee AS \"committee:_\",
+                        cm.\"timestamp\",
+                        ARRAY[]::varchar[] AS members,
+                        ARRAY[]::integer[] AS frosh,
+                        cm.approved
+                    FROM committee_meetings cm
+                    LEFT JOIN freshman_committee_attendance fca ON
+                        fca.meeting_id = cm.id
+                    WHERE cm.approved
+                    AND timestamp > $1::timestamp
+                    AND fca.fid = $2::int4",
                 &state.year_start,
                 user
             )
@@ -138,14 +143,17 @@ pub async fn get_directorships_by_user(
         match log_query_as(
             query_as!(
                 Directorship,
-                "select cm.committee as \"committee: _\", cm.\"timestamp\", array[]::varchar[] as \
-                 members, array[]::integer[] as frosh, cm.approved from
-                committee_meetings cm 
-                left join member_committee_attendance mca on mca.meeting_id  = cm.id
-                where 
-                    cm.approved
-                    and timestamp > $1::timestamp
-                    and mca.uid = $2",
+                "SELECT cm.committee AS \"committee: _\",
+                        cm.\"timestamp\",
+                        ARRAY[]::varchar[] AS members,
+                        ARRAY[]::integer[] AS frosh,
+                        cm.approved
+                    FROM committee_meetings cm
+                    LEFT JOIN member_committee_attendance mca ON
+                        mca.meeting_id = cm.id
+                    WHERE cm.approved
+                    AND timestamp > $1::timestamp
+                    AND mca.uid = $2",
                 &state.year_start,
                 user
             )
@@ -166,17 +174,29 @@ pub async fn get_directorships(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "GET /attendance/directorship");
     match query_as!(
         Directorship,
-        "select member_seminars.committee as \"committee: _\", member_seminars.timestamp, \
-         member_seminars.members, array_agg(fsa.fid) as frosh, member_seminars.approved from
-	(select ts.id, ts.committee, ts.timestamp, array_agg(msa.uid) as members, ts.approved from \
-         committee_meetings ts 
-	inner join member_committee_attendance msa on msa.meeting_id = ts.id
-	where timestamp > $1
-	group by ts.id, ts.committee, ts.timestamp, ts.approved) as member_seminars
-		inner join freshman_committee_attendance fsa on fsa.meeting_id = member_seminars.id
-		group by member_seminars.id, member_seminars.committee, member_seminars.timestamp, \
-         member_seminars.members, member_seminars.approved
-",
+        "SELECT member_seminars.committee AS \"committee: _\",
+                member_seminars.timestamp,
+                member_seminars.members,
+                array_agg(fsa.fid) AS frosh,
+                member_seminars.approved
+            FROM(
+                SELECT ts.id,
+                       ts.committee,
+                       ts.timestamp,
+                       array_agg(msa.uid) AS members,
+                       ts.approved
+                FROM committee_meetings ts
+                INNER JOIN member_committee_attendance msa ON
+                    msa.meeting_id = ts.id
+                WHERE timestamp > $1
+                GROUP BY ts.id, ts.committee, ts.timestamp, ts.approved) AS member_seminars
+                INNER JOIN freshman_committee_attendance fsa ON
+                    fsa.meeting_id = member_seminars.id
+                GROUP BY member_seminars.id,
+                    member_seminars.committee,
+                    member_seminars.timestamp,
+                    member_seminars.members,
+                    member_seminars.approved",
         &state.year_start
     )
     .fetch_all(&state.db)
