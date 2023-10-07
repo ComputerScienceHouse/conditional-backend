@@ -4,7 +4,7 @@
 // names / usernames, while directorship attendance is stored in the database
 // as relations in one of two tables
 
-use chrono::NaiveDateTime;
+use chrono::{NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 use sqlx::types::Json;
 use utoipa::ToSchema;
@@ -55,14 +55,23 @@ pub struct DirectorshipAttendance {
     pub frosh: Vec<i32>,
 }
 
-pub struct IndividualHouseAttendance {
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct MemberHouseAttendance {
     pub name: String,
     pub att_status: AttendanceStatus,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct FroshHouseAttendance {
+    pub name: i32,
+    pub att_status: AttendanceStatus,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct HouseAttendance {
-    pub date: NaiveDateTime,
-    pub body: Json<IndividualHouseAttendance>,
+    pub date: NaiveDate,
+    pub members: Vec<MemberHouseAttendance>,
+    pub frosh: Vec<FroshHouseAttendance>,
 }
 
 pub struct MajorProjectSubmission {

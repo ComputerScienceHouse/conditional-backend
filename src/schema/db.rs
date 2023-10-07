@@ -1,5 +1,6 @@
 use ::chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
+use sqlx::postgres::{PgHasArrayType, PgTypeInfo};
 use sqlx::types::chrono;
 use sqlx::FromRow;
 use utoipa::ToSchema;
@@ -90,6 +91,12 @@ pub enum AttendanceStatus {
     Attended,
     Absent,
     Excused,
+}
+
+impl PgHasArrayType for AttendanceStatus {
+    fn array_type_info() -> sqlx::postgres::PgTypeInfo {
+        PgTypeInfo::with_name("attendance_enum[]")
+    }
 }
 
 /// Directorship Attendance struct, represents all directorship attendance rows
