@@ -266,3 +266,114 @@ pub async fn delete_seminar(path: Path<(String, String)>, state: Data<AppState>)
         }
     }
 }
+
+#[put("/seminar/{id}")]
+pub async fn edit_seminar_attendance(
+    path: Path<(String,)>,
+    state: Data<AppState>,
+    body: Json<MeetingAttendance>,
+) -> impl Responder {
+    let (id,) = path.into_inner();
+    let id = match id.parse::<i32>() {
+        Ok(id) => id,
+        Err(_e) => {
+            log!(Level::Warn, "Invalid id");
+            return HttpResponse::BadRequest().body("Invalid id");
+        }
+    };
+    log!(Level::Info, "PUT /attendance/seminar/{id}");
+    let mut transaction = match open_transaction(&state.db).await {
+        Ok(t) => t,
+        Err(res) => return res,
+    };
+    log!(Level::Trace, "Acquired transaction");
+
+    match log_query(
+        query!(
+            "DELETE FROM freshman_seminar_attendance WHERE seminar_id = $1",
+            id
+        )
+        .execute(&state.db)
+        .await
+        .map(|_| ()),
+        Some(transaction),
+    )
+    .await
+    {
+        Ok(tx) => transaction = tx.unwrap(),
+        Err(res) => return res,
+    }
+
+    match log_query(
+        query!(
+            "DELETE FROM member_seminar_attendance WHERE seminar_id = $1",
+            id
+        )
+        .execute(&state.db)
+        .await
+        .map(|_| ()),
+        Some(transaction),
+    )
+    .await
+    {
+        Ok(tx) => transaction = tx.unwrap(),
+        Err(res) => return res,
+    }
+
+    log!(Level::Trace, "finished deleting existing attendance");
+
+    let frosh_id = vec![id; body.frosh.len()];
+    let member_id = vec![id; body.members.len()];
+
+    // Add frosh, seminar relation
+    match log_query(
+        query!(
+            "INSERT INTO freshman_seminar_attendance (fid, seminar_id) SELECT fid, seminar_id \
+             FROM UNNEST($1::int4[], $2::int4[]) as a(fid, seminar_id)",
+            body.frosh.as_slice(),
+            frosh_id.as_slice()
+        )
+        .fetch_all(&state.db)
+        .await
+        .map(|_| ()),
+        Some(transaction),
+    )
+    .await
+    {
+        Ok(tx) => {
+            transaction = tx.unwrap();
+        }
+        Err(res) => return res,
+    }
+
+    // Add member, seminar relation
+    match log_query(
+        query!(
+            "INSERT INTO member_seminar_attendance (uid, seminar_id) SELECT uid, seminar_id FROM \
+             UNNEST($1::text[], $2::int4[]) as a(uid, seminar_id)",
+            body.members.as_slice(),
+            member_id.as_slice()
+        )
+        .fetch_all(&state.db)
+        .await
+        .map(|_| ()),
+        Some(transaction),
+    )
+    .await
+    {
+        Ok(tx) => {
+            transaction = tx.unwrap();
+        }
+        Err(res) => return res,
+    }
+
+    log!(Level::Trace, "Finished adding new seminar attendance");
+    // Commit transaction
+    match transaction.commit().await {
+        Ok(_) => HttpResponse::Ok().body(""),
+        Err(e) => {
+            log!(Level::Error, "Transaction failed to commit");
+            HttpResponse::InternalServerError().body(e.to_string())
+        }
+    }
+}
