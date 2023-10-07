@@ -11,6 +11,13 @@ use actix_web::{
 use log::{log, Level};
 use sqlx::{query, query_as};
 
+#[utoipa::path(
+    context_path="/attendance",
+    responses(
+        (status = 200, description = "Submit new directorship attendance"),
+        (status = 500, description = "Error created by Query"),
+        )
+    )]
 #[post("/directorship")]
 pub async fn submit_directorship_attendance(
     state: Data<AppState>,
@@ -97,6 +104,13 @@ pub async fn submit_directorship_attendance(
     }
 }
 
+#[utoipa::path(
+    context_path="/attendance",
+    responses(
+        (status = 200, description = "Get all directorships a user has attended", body = [Directorship]),
+        (status = 500, description = "Error created by Query"),
+        )
+    )]
 #[get("/directorship/{user}")]
 pub async fn get_directorships_by_user(
     path: Path<(String,)>,
@@ -169,6 +183,13 @@ pub async fn get_directorships_by_user(
     }
 }
 
+#[utoipa::path(
+    context_path="/attendance",
+    responses(
+        (status = 200, description = "Get all directorships in the current operating session", body = [Directorship]),
+        (status = 500, description = "Error created by Query"),
+        )
+    )]
 #[get("/directorship")]
 pub async fn get_directorships(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "GET /attendance/directorship");
@@ -207,11 +228,25 @@ pub async fn get_directorships(state: Data<AppState>) -> impl Responder {
     }
 }
 
+#[utoipa::path(
+    context_path="/attendance",
+    responses(
+        (status = 200, description = "Delete directorship with a given id"),
+        (status = 500, description = "Error created by Query"),
+        )
+    )]
 #[delete("/directorship/{id}")]
 pub async fn delete_directorship(_path: Path<(String,)>, _state: Data<AppState>) -> impl Responder {
     return HttpResponse::InternalServerError().body("Not implemented yet");
 }
 
+#[utoipa::path(
+    context_path="/attendance",
+    responses(
+        (status = 200, description = "Update directorship"),
+        (status = 500, description = "Error created by Query"),
+        )
+    )]
 #[put("/directorship/{id}")]
 pub async fn edit_directorship_attendance(
     _path: Path<(String,)>,

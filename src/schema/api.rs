@@ -7,6 +7,7 @@
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use sqlx::types::Json;
+use utoipa::ToSchema;
 
 use super::db::{AttendanceStatus, CommitteeType, CoopSemester, MajorProjectStatus};
 
@@ -14,7 +15,7 @@ pub struct ID {
     pub id: i32,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct Seminar {
     /// Name of the technical seminar
     pub name: String,
@@ -28,7 +29,7 @@ pub struct Seminar {
     pub approved: bool,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct Directorship {
     pub committee: CommitteeType,
     pub timestamp: chrono::NaiveDateTime,
@@ -37,7 +38,7 @@ pub struct Directorship {
     pub approved: bool,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct MeetingAttendance {
     pub name: String,
     pub date: NaiveDateTime,
@@ -45,7 +46,7 @@ pub struct MeetingAttendance {
     pub frosh: Vec<i32>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct DirectorshipAttendance {
     pub committee: CommitteeType,
     pub timestamp: chrono::NaiveDateTime,

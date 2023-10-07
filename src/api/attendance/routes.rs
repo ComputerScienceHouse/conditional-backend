@@ -9,6 +9,13 @@ use actix_web::{
 use log::{log, Level};
 use sqlx::{query, query_as};
 
+#[utoipa::path(
+    context_path="/attendance",
+    responses(
+        (status = 200, description = "Submit new seminar attendance"),
+        (status = 500, description = "Error created by Query"),
+        )
+    )]
 #[post("/seminar")]
 pub async fn submit_seminar_attendance(
     state: Data<AppState>,
@@ -98,7 +105,7 @@ pub async fn submit_seminar_attendance(
     log!(Level::Trace, "Finished adding new seminar attendance");
     // Commit transaction
     match transaction.commit().await {
-        Ok(_) => HttpResponse::Ok().body(""),
+        Ok(_) => HttpResponse::Created().finish(),
         Err(e) => {
             log!(Level::Error, "Transaction failed to commit");
             HttpResponse::InternalServerError().body(e.to_string())
@@ -106,6 +113,13 @@ pub async fn submit_seminar_attendance(
     }
 }
 
+#[utoipa::path(
+    context_path="/attendance",
+    responses(
+        (status = 200, description = "List all seminars a user has attended", body = [Seminar]),
+        (status = 500, description = "Error created by Query"),
+        )
+    )]
 #[get("/seminar/{user}")]
 pub async fn get_seminars_by_user(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
     let (user,) = path.into_inner();
@@ -174,6 +188,13 @@ pub async fn get_seminars_by_user(path: Path<(String,)>, state: Data<AppState>) 
     }
 }
 
+#[utoipa::path(
+    context_path="/attendance",
+    responses(
+        (status = 200, description = "Get all seminars in the current operating session", body = [Seminar]),
+        (status = 500, description = "Error created by Query"),
+        )
+    )]
 #[get("/seminar")]
 pub async fn get_seminars(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "GET /attendance/seminar");
@@ -192,7 +213,8 @@ pub async fn get_seminars(state: Data<AppState>) -> impl Responder {
                  GROUP BY ts.id, ts.name, ts.\"timestamp\", ts.approved) AS member_seminars
             INNER JOIN freshman_seminar_attendance fsa ON
                 fsa.seminar_id = member_seminars.id
-            GROUP BY member_seminars.id, member_seminars.name, member_seminars.timestamp, member_seminars.members, member_seminars.approved",
+            GROUP BY member_seminars.id, member_seminars.name, member_seminars.timestamp, \
+         member_seminars.members, member_seminars.approved",
         &state.year_start
     )
     .fetch_all(&state.db)
@@ -203,6 +225,13 @@ pub async fn get_seminars(state: Data<AppState>) -> impl Responder {
     }
 }
 
+#[utoipa::path(
+    context_path="/attendance",
+    responses(
+        (status = 200, description = "Delete seminar with a given id"),
+        (status = 500, description = "Error created by Query"),
+        )
+    )]
 #[delete("/seminar/{id}")]
 pub async fn delete_seminar(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
     let (id,) = path.into_inner();
@@ -278,6 +307,13 @@ pub async fn delete_seminar(path: Path<(String,)>, state: Data<AppState>) -> imp
     }
 }
 
+#[utoipa::path(
+    context_path="/attendance",
+    responses(
+        (status = 200, description = "Update seminar"),
+        (status = 500, description = "Error created by Query"),
+        )
+    )]
 #[put("/seminar/{id}")]
 pub async fn edit_seminar_attendance(
     path: Path<(String,)>,

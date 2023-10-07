@@ -2,9 +2,10 @@ use ::chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use sqlx::types::chrono;
 use sqlx::FromRow;
+use utoipa::ToSchema;
 
 /// Enum used for 'committee_meetings' to indicate directorship type
-#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Copy)]
+#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Copy, ToSchema)]
 #[sqlx(type_name = "committees_enum")]
 pub enum CommitteeType {
     Evaluations,
