@@ -4,7 +4,7 @@ use sqlx::{Error, Pool, Postgres, Transaction};
 
 pub mod attendance {
     pub mod directorship;
-    pub mod routes;
+    pub mod seminar;
 }
 
 pub mod forms {
