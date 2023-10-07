@@ -1,7 +1,6 @@
 use crate::api::{log_query, log_query_as, open_transaction};
 use crate::app::AppState;
-use crate::schema::api::*;
-// use crate::schema::db::*;
+use crate::schema::api::{MeetingAttendance, Seminar, ID};
 use actix_web::{
     delete, get, post, put,
     web::{Data, Json, Path},
