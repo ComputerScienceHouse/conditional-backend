@@ -36,6 +36,8 @@ pub struct Seminar {
     pub members: Option<Vec<String>>,
     /// List of freshmen IDs who attended
     pub frosh: Option<Vec<i32>>,
+    /// Whether the seminar has been approved
+    pub approved: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

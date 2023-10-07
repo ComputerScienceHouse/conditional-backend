@@ -10,7 +10,7 @@ use actix_web::{
 use log::{log, Level};
 use sqlx::{query, query_as};
 
-#[post("/attendance/seminar")]
+#[post("/seminar")]
 pub async fn submit_seminar_attendance(
     state: Data<AppState>,
     body: Json<MeetingAttendance>,
@@ -105,12 +105,9 @@ pub async fn submit_seminar_attendance(
     }
 }
 
-#[get("/attendance/seminar/{user}")]
-pub async fn get_seminars_by_user(
-    path: Path<(String, String)>,
-    state: Data<AppState>,
-) -> impl Responder {
-    let (user, _) = path.into_inner();
+#[get("/seminar/{user}")]
+pub async fn get_seminars_by_user(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
+    let (user,) = path.into_inner();
     log!(Level::Info, "GET /attendance/seminar/{}", user);
     if user.chars().next().unwrap().is_numeric() {
         let user: i32 = match user.parse() {
@@ -123,13 +120,14 @@ pub async fn get_seminars_by_user(
         match log_query_as(
             query_as!(
                 Seminar,
-                "select ts.name, ts.\"timestamp\", array[]::varchar[] AS members, ARRAY[]::integer[] AS frosh
-                    FROM technical_seminars ts
-                    LEFT JOIN freshman_seminar_attendance fsa ON
-                    fsa.seminar_id = ts.id
-                    WHERE ts.approved
-                    AND ts.\"timestamp\" > $1::timestamp
-                    AND fsa.fid = $2::int4",
+                "select ts.name, ts.\"timestamp\", array[]::varchar[] as members, \
+                 array[]::integer[] as frosh, ts.approved from
+            technical_seminars ts 
+            left join freshman_seminar_attendance fsa on fsa.seminar_id  = ts.id
+            where 
+                ts.approved
+                and timestamp > $1::timestamp
+                and fsa.fid = $2::int4",
                 &state.year_start,
                 user
             )
@@ -147,7 +145,7 @@ pub async fn get_seminars_by_user(
             query_as!(
                 Seminar,
                 "select ts.name, ts.\"timestamp\", array[]::varchar[] as members, \
-                 array[]::integer[] as frosh from
+                 array[]::integer[] as frosh, ts.approved from
                 technical_seminars ts 
                 left join member_seminar_attendance msa on msa.seminar_id  = ts.id
                 where 
@@ -169,20 +167,21 @@ pub async fn get_seminars_by_user(
     }
 }
 
-#[get("/attendance/seminar")]
+#[get("/seminar")]
 pub async fn get_seminars(state: Data<AppState>) -> impl Responder {
+    log!(Level::Info, "GET /attendance/seminar");
     match query_as!(
         Seminar,
         "SELECT member_seminars.name, member_seminars.timestamp, member_seminars.members, \
-         array_agg(fsa.fid) as frosh FROM
-        (SELECT ts.id, ts.name, ts.timestamp, array_agg(msa.uid) as members FROM \
+         array_agg(fsa.fid) as frosh, member_seminars.approved FROM
+        (SELECT ts.id, ts.name, ts.timestamp, array_agg(msa.uid) as members, ts.approved FROM \
          technical_seminars ts 
-            LEFT JOIN member_seminar_attendance msa on msa.seminar_id = ts.id
+            INNER JOIN member_seminar_attendance msa on msa.seminar_id = ts.id
             WHERE timestamp > $1::timestamp
-            GROUP BY ts.id, ts.name, ts.\"timestamp\") as member_seminars
-                LEFT JOIN freshman_seminar_attendance fsa on fsa.seminar_id = member_seminars.id
+            GROUP BY ts.id, ts.name, ts.\"timestamp\", ts.approved) as member_seminars
+                INNER JOIN freshman_seminar_attendance fsa on fsa.seminar_id = member_seminars.id
                 GROUP BY member_seminars.id, member_seminars.name, member_seminars.timestamp, \
-         member_seminars.members",
+         member_seminars.members, member_seminars.approved",
         &state.year_start
     )
     .fetch_all(&state.db)
@@ -193,7 +192,7 @@ pub async fn get_seminars(state: Data<AppState>) -> impl Responder {
     }
 }
 
-#[delete("/attedance/seminar/{id}")]
+#[delete("/seminar/{id}")]
 pub async fn delete_seminar(path: Path<(String, String)>, state: Data<AppState>) -> impl Responder {
     let (id, _) = path.into_inner();
     log!(Level::Info, "DELETE /attedance/seminar/{id}");
