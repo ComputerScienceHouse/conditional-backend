@@ -11,6 +11,8 @@ pub mod forms {
     pub mod routes;
 }
 
+pub mod routes;
+
 pub async fn open_transaction(db: &Pool<Postgres>) -> Result<Transaction<Postgres>, HttpResponse> {
     match db.try_begin().await {
         Ok(Some(t)) => Ok(t),
