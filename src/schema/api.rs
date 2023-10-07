@@ -6,13 +6,17 @@
 
 use chrono::{NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
-use sqlx::types::Json;
 use utoipa::ToSchema;
 
 use super::db::{AttendanceStatus, CommitteeType, CoopSemester, MajorProjectStatus};
 
 pub struct ID {
     pub id: i32,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Date {
+    pub date: NaiveDate,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
