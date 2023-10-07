@@ -2,6 +2,6 @@ binop_seperator = "Back"
 format_code_in_doc_comments = true
 format_strings = true
 normalize_comments = true
-tab_spaces = 2
+tab_spaces = 4
 unstable_features = true
 wrap_comments = true

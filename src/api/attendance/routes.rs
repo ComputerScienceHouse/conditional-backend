@@ -22,10 +22,6 @@ pub async fn submit_seminar_attendance(
     };
     log!(Level::Trace, "Acquired transaction");
 
-    struct ID {
-        id: i32,
-    }
-
     let id: i32;
 
     // Add new technical seminar
@@ -141,16 +137,26 @@ pub async fn get_seminars_by_user(path: Path<(String, String)>, state: Data<AppS
 /*
 #[get("/attendance/seminar")]
 pub async fn get_seminars(state: Data<AppState>) -> impl Responder {
-    // TODO: Joe: year_start should be the day the new year button was pressed by Evals, formatted for postgres
-    match query_as!(Seminar, "SELECT * FROM technical_seminars WHERE timestamp > ($1::timestamp)", &state.year_start)
-        .fetch_all(&state.db)
-        .await
-    {
-        Ok(seminars) => HttpResponse::Ok().json(seminars),
-        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
-    }
+    match query_as!(
+    Seminar,
+    "SELECT member_seminars.name, member_seminars.timestamp, member_seminars.members, array_agg(fsa.fid) as frosh FROM
+        (SELECT ts.id, ts.name, ts.timestamp, array_agg(msa.uid) as members FROM technical_seminars ts 
+            LEFT JOIN member_seminar_attendance msa on msa.seminar_id = ts.id
+            WHERE timestamp > $1::timestamp
+            GROUP BY ts.id, ts.name, ts.\"timestamp\") as member_seminars
+                LEFT JOIN freshman_seminar_attendance fsa on fsa.seminar_id = member_seminars.id
+                GROUP BY member_seminars.id, member_seminars.name, member_seminars.timestamp, member_seminars.members",
+    &state.year_start
+  )
+  .fetch_all(&state.db)
+  .await
+  {
+    Ok(seminars) => HttpResponse::Ok().json(seminars),
+    Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+  }
 }
 
+/*
 #[put("/attendance/seminar/{id}")]
 pub async fn put_seminar(state: Data<AppState>, body: Json<String>) -> impl Responder {
     let (id,) = path.into_inner();
