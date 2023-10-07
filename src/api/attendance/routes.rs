@@ -1,7 +1,7 @@
 use crate::api::{log_query, log_query_as, open_transaction};
 use crate::app::AppState;
 use crate::schema::api::*;
-use crate::schema::db::*;
+// use crate::schema::db::*;
 use actix_web::{
     delete, get, post, put,
     web::{Data, Json, Path},
@@ -73,30 +73,12 @@ pub async fn submit_seminar_attendance(
     }
 }
 
-/*
 #[get("/attendance/seminar/{user}")]
-pub async fn get_seminars_by_user(state: Data<AppState>) -> impl Responder {
-    // TODO: authenticate with token
-    let (name,) = user;
-    if name.len() < 1 {
-        return HttpResponse::BadRequest().body("No name found".to_string());
-    }
-    match query_as!(Seminar, format!(
-        "SELECT * FROM {} WHERE approved = 'true' AND {} = $1 AND seminar_id IN (SELECT id FROM technical_seminars WHERE timestamp > ($2::timestamp))",
-        if name.chars().next().is_numeric() { "freshman_seminar_attendance" } else { "member_seminar_attendance" },
-        if name.chars().next().is_numeric() { "fid" } else { "uid" }), body.name, &state.year_start)
-        .fetch_all(&state.db)
-        .await
-    {
-        Ok(seminars) => HttpResponse::Ok().json(seminars),
-        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
-    }
-}
-*/
-
-#[get("/attendance/seminar/{user}")]
-pub async fn get_seminars_by_user(path: Path<(String, String)>, state: Data<AppState>) -> impl Responder {
-    let (user,_) = path.into_inner();
+pub async fn get_seminars_by_user(
+    path: Path<(String, String)>,
+    state: Data<AppState>,
+) -> impl Responder {
+    let (user, _) = path.into_inner();
     log!(Level::Info, "GET /attendance/seminar/{}", user);
     let transaction = match open_transaction(&state.db).await {
         Ok(t) => t,
@@ -104,13 +86,22 @@ pub async fn get_seminars_by_user(path: Path<(String, String)>, state: Data<AppS
     };
     log!(Level::Trace, "Acquired transaction");
 
-    match user.chars().next().unwrap().is_numeric() {
-        true => {
-            let user: Result<i32, _> = user.parse();
-            if user.is_err() {
-                log!(Level::Warn, "Invalid freshman username");
-            }
-            match log_query_as(query_as!(FreshmanSeminarAttendance, "SELECT * FROM freshman_seminar_attendance WHERE fid = $1 AND seminar_id IN (SELECT id FROM technical_seminars WHERE approved = 'true' AND  timestamp > $2)", user.unwrap(), &state.year_start) 
+
+    if user.chars().next().unwrap().is_numeric() {
+          let user: i32 = match user.parse() {
+            Ok(user) => user,
+            Err(e) => return HttpResponse::InternalServerError().body(e.to_string()),
+          };
+          match log_query_as(query_as!(
+            Seminar,
+            "select ts.name, ts.\"timestamp\", array[]::varchar[] as members, array[]::integer[] as frosh from
+            technical_seminars ts 
+            left join freshman_seminar_attendance fsa on fsa.seminar_id  = ts.id
+            where 
+                ts.approved
+                and timestamp > $1::timestamp
+                and fsa.fid = $2::int4",
+            &state.year_start, user) 
                 .fetch_all(&state.db)
                 .await, transaction).await
             {
@@ -119,9 +110,17 @@ pub async fn get_seminars_by_user(path: Path<(String, String)>, state: Data<AppS
                 }
                 Err(e) => return e,
             }
-        },
-        false => {
-            match log_query_as(query_as!(MemberSeminarAttendance, "SELECT * FROM member_seminar_attendance WHERE uid = $1 AND seminar_id IN (SELECT id FROM technical_seminars WHERE approved = 'true' AND  timestamp > $2)", user, &state.year_start) 
+        } else {
+          match log_query_as(query_as!(
+            Seminar,
+            "select ts.name, ts.\"timestamp\", array[]::varchar[] as members, array[]::integer[] as frosh from
+                technical_seminars ts 
+                left join member_seminar_attendance msa on msa.seminar_id  = ts.id
+                where 
+                    ts.approved
+                    and timestamp > $1::timestamp
+                    and msa.uid = $2",
+            &state.year_start, user) 
                 .fetch_all(&state.db)
                 .await, transaction).await
             {
@@ -131,10 +130,8 @@ pub async fn get_seminars_by_user(path: Path<(String, String)>, state: Data<AppS
                 Err(e) => return e,
             }
         }
-    }
 }
 
-/*
 #[get("/attendance/seminar")]
 pub async fn get_seminars(state: Data<AppState>) -> impl Responder {
     match query_as!(
@@ -186,8 +183,8 @@ pub async fn put_seminar(state: Data<AppState>, body: Json<String>) -> impl Resp
 #[delete("/attendance/seminar/{id}")]
 pub async fn delete_seminar(state: Data<AppState>) -> impl Responder {
     let (id,) = path.into_inner();
-    match query!("DELETE FROM freshman_seminar_attendance WHERE seminar_id = ($1::int4); 
-    DELETE FROM member_seminar_attendance WHERE seminar_id = ($2::int4); 
+    match query!("DELETE FROM freshman_seminar_attendance WHERE seminar_id = ($1::int4);
+    DELETE FROM member_seminar_attendance WHERE seminar_id = ($2::int4);
     DELETE FROM technical_seminars WHERE id = ($3::int4);", id, id, id)
         .execute(&state.db)
         .await
@@ -201,32 +198,63 @@ pub async fn delete_seminar(state: Data<AppState>) -> impl Responder {
 
 #[delete("/attedance/seminar/{id}")]
 pub async fn delete_seminar(path: Path<(String, String)>, state: Data<AppState>) -> impl Responder {
-    let (id,_) = path.into_inner();
+    let (id, _) = path.into_inner();
     log!(Level::Info, "DELETE /attedance/seminar/{id}");
-    let id = id.parse::<i32>();
-    if id.is_err() {
-        log!(Level::Warn, "Invalid id");
-        return HttpResponse::BadRequest().body("Invalid id");
-    }
-    let id  = id.unwrap();
+    let id = match id.parse::<i32>() {
+        Ok(id) => id,
+        Err(e) => {
+            log!(Level::Warn, "Invalid id");
+            return HttpResponse::BadRequest().body("Invalid id");
+        }
+    };
     let mut transaction = match open_transaction(&state.db).await {
         Ok(t) => t,
         Err(res) => return res,
     };
     log!(Level::Trace, "Acquired transaction");
-    match log_query(query!("DELETE FROM freshman_seminar_attendance WHERE seminar_id = $1", id).execute(&state.db).await.map(|_| ()), transaction).await {
+    match log_query(
+        query!(
+            "DELETE FROM freshman_seminar_attendance WHERE seminar_id = $1",
+            id
+        )
+        .execute(&state.db)
+        .await
+        .map(|_| ()),
+        transaction,
+    )
+    .await
+    {
         Ok(tx) => {
             transaction = tx;
         }
         Err(res) => return res,
     }
-    match log_query(query!("DELETE FROM member_seminar_attendance WHERE seminar_id = $1", id).execute(&state.db).await.map(|_| ()), transaction).await {
+    match log_query(
+        query!(
+            "DELETE FROM member_seminar_attendance WHERE seminar_id = $1",
+            id
+        )
+        .execute(&state.db)
+        .await
+        .map(|_| ()),
+        transaction,
+    )
+    .await
+    {
         Ok(tx) => {
             transaction = tx;
         }
         Err(res) => return res,
     }
-    match log_query(query!("DELETE FROM technical_seminars WHERE id = $1", id).execute(&state.db).await.map(|_| ()), transaction).await {
+    match log_query(
+        query!("DELETE FROM technical_seminars WHERE id = $1", id)
+            .execute(&state.db)
+            .await
+            .map(|_| ()),
+        transaction,
+    )
+    .await
+    {
         Ok(tx) => {
             transaction = tx;
         }
