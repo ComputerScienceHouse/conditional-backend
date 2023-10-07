@@ -9,7 +9,102 @@ use actix_web::{
     HttpResponse, Responder,
 };
 use log::{log, Level};
-use sqlx::{query, query_as};
+use sqlx::{query, query_as, Pool, Postgres, Transaction};
+
+async fn delete_directorship_attendance<'a>(
+    id: i32,
+    mut transaction: Transaction<'a, Postgres>,
+    db: &Pool<Postgres>,
+) -> Result<Transaction<'a, Postgres>, HttpResponse> {
+    match log_query(
+        query!(
+            "DELETE FROM freshman_committee_attendance WHERE meeting_id = $1",
+            id
+        )
+        .execute(db)
+        .await
+        .map(|_| ()),
+        Some(transaction),
+    )
+    .await
+    {
+        Ok(tx) => {
+            transaction = tx.unwrap();
+        }
+        Err(res) => return Err(res),
+    };
+    match log_query(
+        query!(
+            "DELETE FROM member_committee_attendance WHERE meeting_id = $1",
+            id
+        )
+        .execute(db)
+        .await
+        .map(|_| ()),
+        Some(transaction),
+    )
+    .await
+    {
+        Ok(tx) => {
+            transaction = tx.unwrap();
+        }
+        Err(res) => return Err(res),
+    };
+    log!(Level::Trace, "Deleted directorship attendance");
+    Ok(transaction)
+}
+
+async fn create_directorship_attendance<'a>(
+    id: i32,
+    body: Json<DirectorshipAttendance>,
+    mut transaction: Transaction<'a, Postgres>,
+    db: &Pool<Postgres>,
+) -> Result<Transaction<'a, Postgres>, HttpResponse> {
+    let frosh_ids = vec![id; body.frosh.len()];
+    let member_ids = vec![id; body.frosh.len()];
+
+    // Add frosh/directorship relation
+    match log_query(
+        query!(
+            "INSERT INTO freshman_committee_attendance (fid, meeting_id)
+                SELECT fid, meeting_id
+                FROM UNNEST($1::int4[], $2::int4[]) AS a(fid, meeting_id)",
+            body.frosh.as_slice(),
+            frosh_ids.as_slice()
+        )
+        .fetch_all(db)
+        .await
+        .map(|_| ()),
+        Some(transaction),
+    )
+    .await
+    {
+        Ok(tx) => transaction = tx.unwrap(),
+        Err(res) => return Err(res),
+    }
+
+    // Add member/directorship relation
+    match log_query(
+        query!(
+            "INSERT INTO member_committee_attendance (uid, meeting_id)
+                SELECT uid, meeting_id
+                FROM UNNEST($1::TEXT[], $2::int4[]) AS a(uid, meeting_id)",
+            body.members.as_slice(),
+            member_ids.as_slice()
+        )
+        .fetch_all(db)
+        .await
+        .map(|_| ()),
+        Some(transaction),
+    )
+    .await
+    {
+        Ok(t) => transaction = t.unwrap(),
+        Err(res) => return Err(res),
+    };
+    log!(Level::Trace, "Added directorship attendance");
+    Ok(transaction)
+}
 
 #[utoipa::path(
     context_path="/attendance",
@@ -31,7 +126,6 @@ pub async fn submit_directorship_attendance(
     log!(Level::Trace, "Acquired transaction");
 
     let id: i32;
-
     match log_query_as(
         query_as!(
             ID,
@@ -48,59 +142,20 @@ pub async fn submit_directorship_attendance(
     )
     .await
     {
-        Ok((t, i)) => {
+        Ok((tx, i)) => {
             id = i[0].id;
-            transaction = t.unwrap();
+            transaction = tx.unwrap();
         }
         Err(res) => return res,
-    }
+    };
     log!(Level::Debug, "Inserted directorship into db ID={}", id);
 
-    let frosh_id = vec![id; body.frosh.len()];
-    let member_id = vec![id; body.frosh.len()];
-
-    // Add frosh, directorship relation
-    match log_query(
-        query!(
-            "INSERT INTO freshman_committee_attendance (fid, meeting_id)
-                SELECT fid, meeting_id
-                FROM UNNEST($1::int4[], $2::int4[]) AS a(fid, meeting_id)",
-            body.frosh.as_slice(),
-            frosh_id.as_slice()
-        )
-        .fetch_all(&state.db)
-        .await
-        .map(|_| ()),
-        Some(transaction),
-    )
-    .await
-    {
-        Ok(t) => transaction = t.unwrap(),
-        Err(res) => return res,
-    }
-
-    match log_query(
-        query!(
-            "INSERT INTO member_committee_attendance (uid, meeting_id)
-                SELECT uid, meeting_id
-                FROM UNNEST($1::TEXT[], $2::int4[]) AS a(uid, meeting_id)",
-            body.members.as_slice(),
-            member_id.as_slice()
-        )
-        .fetch_all(&state.db)
-        .await
-        .map(|_| ()),
-        Some(transaction),
-    )
-    .await
-    {
-        Ok(t) => transaction = t.unwrap(),
-        Err(res) => return res,
-    };
-
-    match transaction.commit().await {
-        Ok(_) => HttpResponse::Ok().finish(),
-        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+    match create_directorship_attendance(id, body, transaction, &state.db).await {
+        Ok(tx) => match tx.commit().await {
+            Ok(_) => HttpResponse::Ok().finish(),
+            Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+        },
+        Err(e) => e,
     }
 }
 
@@ -236,8 +291,49 @@ pub async fn get_directorships(state: Data<AppState>) -> impl Responder {
         )
     )]
 #[delete("/directorship/{id}")]
-pub async fn delete_directorship(_path: Path<(String,)>, _state: Data<AppState>) -> impl Responder {
-    return HttpResponse::InternalServerError().body("Not implemented yet");
+pub async fn delete_directorship(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
+    let (id,) = path.into_inner();
+    log!(Level::Info, "DELETE /attendance/directorship/{}", id);
+    let id = match id.parse::<i32>() {
+        Ok(id) => id,
+        Err(_e) => {
+            log!(Level::Warn, "Invalid id");
+            return HttpResponse::BadRequest().body("Invalid id");
+        }
+    };
+    let mut transaction = match open_transaction(&state.db).await {
+        Ok(t) => t,
+        Err(res) => return res,
+    };
+    log!(Level::Trace, "Acquired transaction");
+    match delete_directorship_attendance(id, transaction, &state.db).await {
+        Ok(tx) => {
+            transaction = tx;
+        }
+        Err(res) => return res,
+    };
+    match log_query(
+        query!("DELETE FROM committee_meetings WHERE id = $1", id)
+            .execute(&state.db)
+            .await
+            .map(|_| ()),
+        Some(transaction),
+    )
+    .await
+    {
+        Ok(tx) => {
+            transaction = tx.unwrap();
+        }
+        Err(res) => return res,
+    }
+    log!(Level::Trace, "Finished deleting directorship");
+    match transaction.commit().await {
+        Ok(_) => HttpResponse::Ok().body(""),
+        Err(e) => {
+            log!(Level::Error, "Transaction failed to commit");
+            HttpResponse::InternalServerError().body(e.to_string())
+        }
+    }
 }
 
 #[utoipa::path(
@@ -249,9 +345,42 @@ pub async fn delete_directorship(_path: Path<(String,)>, _state: Data<AppState>)
     )]
 #[put("/directorship/{id}")]
 pub async fn edit_directorship_attendance(
-    _path: Path<(String,)>,
-    _state: Data<AppState>,
-    _body: Json<DirectorshipAttendance>,
+    path: Path<(String,)>,
+    state: Data<AppState>,
+    body: Json<DirectorshipAttendance>,
 ) -> impl Responder {
-    return HttpResponse::InternalServerError().body("Not implemented yet");
+    let (id,) = path.into_inner();
+    let id = match id.parse::<i32>() {
+        Ok(id) => id,
+        Err(_e) => {
+            log!(Level::Warn, "Invalid id");
+            return HttpResponse::BadRequest().body("Invalid id");
+        }
+    };
+    log!(Level::Info, "PUT /attendance/seminar/{id}");
+    let mut transaction = match open_transaction(&state.db).await {
+        Ok(t) => t,
+        Err(res) => return res,
+    };
+    log!(Level::Trace, "Acquired transaction");
+
+    match delete_directorship_attendance(id, transaction, &state.db).await {
+        Ok(tx) => {
+            transaction = tx;
+        }
+        Err(e) => return e,
+    };
+    match create_directorship_attendance(id, body, transaction, &state.db).await {
+        Ok(tx) => {
+            transaction = tx;
+        }
+        Err(e) => return e,
+    };
+    match transaction.commit().await {
+        Ok(_) => HttpResponse::Ok().body(""),
+        Err(e) => {
+            log!(Level::Error, "Transaction failed to commit");
+            HttpResponse::InternalServerError().body(e.to_string())
+        }
+    }
 }
