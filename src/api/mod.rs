@@ -3,6 +3,7 @@ use log::{log, Level};
 use sqlx::{Error, Pool, Postgres, Transaction};
 
 pub mod attendance {
+    pub mod directorship;
     pub mod routes;
 }
 

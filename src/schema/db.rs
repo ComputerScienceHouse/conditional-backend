@@ -4,7 +4,7 @@ use sqlx::types::chrono;
 use sqlx::FromRow;
 
 /// Enum used for 'committee_meetings' to indicate directorship type
-#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
+#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Copy)]
 #[sqlx(type_name = "committees_enum")]
 pub enum CommitteeType {
     Evaluations,
@@ -27,7 +27,7 @@ pub enum CommitteeType {
 // ----------- ENTERING POSTGRES BULLSHIT. BLAME jmf FOR THIS -----------------
 
 /// Enum used for 'conditional' to indicate P/F status
-#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
+#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Copy)]
 #[sqlx(type_name = "conditional_enum")]
 pub enum ConditionalStatus {
     Pending,
@@ -36,7 +36,7 @@ pub enum ConditionalStatus {
 }
 
 /// Enum used for freshman project (deprecated) in 'freshman_eval_data'
-#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
+#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Copy)]
 #[sqlx(type_name = "freshman_project_enum")]
 pub enum FreshmanProjectStatus {
     Pending,
@@ -45,7 +45,7 @@ pub enum FreshmanProjectStatus {
 }
 
 /// Enum used for freshman eval status in 'freshman_eval_data'
-#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
+#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Copy)]
 #[sqlx(type_name = "freshman_eval_enum")]
 pub enum FreshmanEvalStatus {
     Pending,
@@ -54,7 +54,7 @@ pub enum FreshmanEvalStatus {
 }
 
 /// Enum used for major project status in 'major_projecs'
-#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
+#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Copy)]
 #[sqlx(type_name = "major_project_enum")]
 pub enum MajorProjectStatus {
     Pending,
@@ -62,7 +62,7 @@ pub enum MajorProjectStatus {
     Failed,
 }
 
-#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
+#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Copy)]
 #[sqlx(type_name = "spring_eval_emum")]
 pub enum SpringEvalStatus {
     Pending,
@@ -73,7 +73,7 @@ pub enum SpringEvalStatus {
 // --------- END POSTGRES BULLSHIT. BLAME joeneil FOR THE REST OF THIS --------
 
 /// Enum used for coop semester in 'current_coops'
-#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
+#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Copy)]
 #[sqlx(type_name = "co_op_enum")]
 pub enum CoopSemester {
     Fall,
@@ -81,8 +81,9 @@ pub enum CoopSemester {
     Neither,
 }
 
-/// Enum used to attendance in 'freshman_hm_attendance' and 'member_hm_attendance'
-#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
+/// Enum used to attendance in 'freshman_hm_attendance' and
+/// 'member_hm_attendance'
+#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Copy)]
 #[sqlx(type_name = "attendance_enum")]
 pub enum AttendanceStatus {
     Attended,
@@ -306,7 +307,8 @@ pub struct MemberHouseAttendance {
     pub meeting_id: i32,
     /// Optional excuse if a member was excused from a house meeting
     pub excuse: Option<String>,
-    /// Whether the member attended, was abssent, or was excused from a house meeting
+    /// Whether the member attended, was abssent, or was excused from a house
+    /// meeting
     pub attendance_status: Option<AttendanceStatus>,
 }
 

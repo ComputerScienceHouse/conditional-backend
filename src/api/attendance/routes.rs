@@ -193,8 +193,8 @@ pub async fn get_seminars(state: Data<AppState>) -> impl Responder {
 }
 
 #[delete("/seminar/{id}")]
-pub async fn delete_seminar(path: Path<(String, String)>, state: Data<AppState>) -> impl Responder {
-    let (id, _) = path.into_inner();
+pub async fn delete_seminar(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
+    let (id,) = path.into_inner();
     log!(Level::Info, "DELETE /attedance/seminar/{id}");
     let id = match id.parse::<i32>() {
         Ok(id) => id,

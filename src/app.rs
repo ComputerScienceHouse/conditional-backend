@@ -3,7 +3,7 @@ use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use std::env;
 
-use crate::api::attendance::routes::*;
+use crate::api::attendance::{directorship::*, routes::*};
 
 pub struct AppState {
     pub db: Pool<Postgres>,
@@ -13,10 +13,18 @@ pub struct AppState {
 pub fn configure_app(cfg: &mut web::ServiceConfig) {
     cfg.service(
         scope("/attendance")
+            // Seminar routes
             .service(submit_seminar_attendance)
             .service(get_seminars_by_user)
             .service(get_seminars)
-            .service(delete_seminar),
+            .service(delete_seminar)
+            .service(edit_seminar_attendance)
+            // Directorship routes
+            .service(submit_directorship_attendance)
+            .service(get_directorships_by_user)
+            .service(get_directorships)
+            .service(delete_directorship)
+            .service(edit_directorship_attendance),
     );
 }
 

@@ -8,22 +8,10 @@ use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use sqlx::types::Json;
 
-use super::db::{AttendanceStatus, CoopSemester, MajorProjectStatus};
+use super::db::{AttendanceStatus, CommitteeType, CoopSemester, MajorProjectStatus};
 
 pub struct ID {
     pub id: i32,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Committee {
-    /// Name of the technical seminar
-    pub name: String,
-    /// Date this seminar occured
-    pub timestamp: chrono::NaiveDateTime,
-    /// List of member usernames who attended
-    pub members: Option<Vec<String>>,
-    /// List of freshmen IDs who attended
-    pub frosh: Option<Vec<i32>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -41,9 +29,27 @@ pub struct Seminar {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Directorship {
+    pub committee: CommitteeType,
+    pub timestamp: chrono::NaiveDateTime,
+    pub members: Option<Vec<String>>,
+    pub frosh: Option<Vec<i32>>,
+    pub approved: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MeetingAttendance {
     pub name: String,
     pub date: NaiveDateTime,
+    pub members: Vec<String>,
+    pub frosh: Vec<i32>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct DirectorshipAttendance {
+    pub committee: CommitteeType,
+    pub timestamp: chrono::NaiveDateTime,
+    pub approved: bool,
     pub members: Vec<String>,
     pub frosh: Vec<i32>,
 }
