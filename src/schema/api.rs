@@ -15,6 +15,18 @@ pub struct ID {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Committee {
+    /// Name of the technical seminar
+    pub name: String,
+    /// Date this seminar occured
+    pub timestamp: chrono::NaiveDateTime,
+    /// List of member usernames who attended
+    pub members: Option<Vec<String>>,
+    /// List of freshmen IDs who attended
+    pub frosh: Option<Vec<i32>>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Seminar {
     /// Name of the technical seminar
     pub name: String,

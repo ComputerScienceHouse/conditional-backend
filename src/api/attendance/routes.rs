@@ -112,18 +112,17 @@ pub async fn get_seminars_by_user(
 ) -> impl Responder {
     let (user, _) = path.into_inner();
     log!(Level::Info, "GET /attendance/seminar/{}", user);
-    log!(Level::Trace, "Acquired transaction");
-
     if user.chars().next().unwrap().is_numeric() {
         let user: i32 = match user.parse() {
             Ok(user) => user,
-            Err(e) => return HttpResponse::InternalServerError().body(e.to_string()),
+            Err(_e) => {
+                log!(Level::Warn, "Invalid id");
+                return HttpResponse::BadRequest().body("Invalid id");
+            }
         };
-        match log_query_as(
-            query_as!(
-                Seminar,
-                "select ts.name, ts.\"timestamp\", array[]::varchar[] as members, \
-                 array[]::integer[] as frosh from
+        match log_query_as(query_as!(
+            Seminar,
+            "select ts.name, ts.\"timestamp\", array[]::varchar[] as members, array[]::integer[] as frosh from
             technical_seminars ts 
             left join freshman_seminar_attendance fsa on fsa.seminar_id  = ts.id
             where 
