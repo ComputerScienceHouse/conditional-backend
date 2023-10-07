@@ -27,10 +27,10 @@ pub async fn submit_seminar_attendance(
     // Add new technical seminar
     match log_query_as(
         query_as!(ID, "INSERT INTO technical_seminars (name, timestamp, active, approved) VALUES ($1, $2, $3, $4) RETURNING id", body.name, body.date, true, false).fetch_all(&state.db).await, 
-        transaction
+        Some(transaction)
         ).await {
         Ok((tx, i)) => {
-            transaction = tx;
+            transaction = tx.unwrap();
             id = i[0].id;
         },
         Err(res) => return res,
@@ -43,10 +43,10 @@ pub async fn submit_seminar_attendance(
     // Add frosh, seminar relation
     match log_query(
         query!("INSERT INTO freshman_seminar_attendance (fid, seminar_id) SELECT fid, seminar_id FROM UNNEST($1::int4[], $2::int4[]) as a(fid, seminar_id)", body.frosh.as_slice(), frosh_id.as_slice()).fetch_all(&state.db).await.map(|_| ()),
-        transaction
+        Some(transaction)
         ).await {
         Ok(tx) => {
-            transaction = tx;
+            transaction = tx.unwrap();
         },
         Err(res) => return res,
     }
@@ -54,10 +54,10 @@ pub async fn submit_seminar_attendance(
     // Add member, seminar relation
     match log_query(
         query!("INSERT INTO member_seminar_attendance (uid, seminar_id) SELECT uid, seminar_id FROM UNNEST($1::text[], $2::int4[]) as a(uid, seminar_id)", body.members.as_slice(), member_id.as_slice()).fetch_all(&state.db).await.map(|_| ()),
-        transaction
+        Some(transaction)
         ).await {
         Ok(tx) => {
-            transaction = tx;
+            transaction = tx.unwrap();
         },
         Err(res) => return res,
     }
@@ -80,10 +80,6 @@ pub async fn get_seminars_by_user(
 ) -> impl Responder {
     let (user, _) = path.into_inner();
     log!(Level::Info, "GET /attendance/seminar/{}", user);
-    let transaction = match open_transaction(&state.db).await {
-        Ok(t) => t,
-        Err(res) => return res,
-    };
     log!(Level::Trace, "Acquired transaction");
 
 
@@ -103,7 +99,7 @@ pub async fn get_seminars_by_user(
                 and fsa.fid = $2::int4",
             &state.year_start, user) 
                 .fetch_all(&state.db)
-                .await, transaction).await
+                .await, None).await
             {
                 Ok((_, seminars)) => {
                     HttpResponse::Ok().json(seminars)
@@ -122,7 +118,7 @@ pub async fn get_seminars_by_user(
                     and msa.uid = $2",
             &state.year_start, user) 
                 .fetch_all(&state.db)
-                .await, transaction).await
+                .await, None).await
             {
                 Ok((_, seminars)) => {
                     HttpResponse::Ok().json(seminars)
@@ -202,7 +198,7 @@ pub async fn delete_seminar(path: Path<(String, String)>, state: Data<AppState>)
     log!(Level::Info, "DELETE /attedance/seminar/{id}");
     let id = match id.parse::<i32>() {
         Ok(id) => id,
-        Err(e) => {
+        Err(_e) => {
             log!(Level::Warn, "Invalid id");
             return HttpResponse::BadRequest().body("Invalid id");
         }
@@ -220,12 +216,12 @@ pub async fn delete_seminar(path: Path<(String, String)>, state: Data<AppState>)
         .execute(&state.db)
         .await
         .map(|_| ()),
-        transaction,
+        Some(transaction),
     )
     .await
     {
         Ok(tx) => {
-            transaction = tx;
+            transaction = tx.unwrap();
         }
         Err(res) => return res,
     }
@@ -237,12 +233,12 @@ pub async fn delete_seminar(path: Path<(String, String)>, state: Data<AppState>)
         .execute(&state.db)
         .await
         .map(|_| ()),
-        transaction,
+        Some(transaction),
     )
     .await
     {
         Ok(tx) => {
-            transaction = tx;
+            transaction = tx.unwrap();
         }
         Err(res) => return res,
     }
@@ -251,12 +247,12 @@ pub async fn delete_seminar(path: Path<(String, String)>, state: Data<AppState>)
             .execute(&state.db)
             .await
             .map(|_| ()),
-        transaction,
+        Some(transaction),
     )
     .await
     {
         Ok(tx) => {
-            transaction = tx;
+            transaction = tx.unwrap();
         }
         Err(res) => return res,
     }
