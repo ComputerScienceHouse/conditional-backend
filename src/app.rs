@@ -1,4 +1,4 @@
-use crate::api::attendance::{directorship::*, routes::*};
+use crate::api::attendance::{directorship::*, seminar::*};
 use crate::schema::{
     api::{Directorship, MeetingAttendance, Seminar},
     db::CommitteeType,
