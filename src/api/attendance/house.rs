@@ -1,7 +1,7 @@
-use actix_web::{delete, get, post, put, web::{Data, Json, Path}, HttpResponse, Responder};
+use actix_web::{get, post, put, web::{Data, Json, Path}, HttpResponse, Responder};
 use log::{log, Level};
 use sqlx::{query, query_as};
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::NaiveDate;
 
 use crate::{
     api::{log_query, log_query_as, open_transaction},
@@ -116,6 +116,45 @@ pub async fn get_hm_attendance_by_user_evals(path: Path<(String,)>, state: Data<
         match log_query_as(query_as!(Date, "SELECT date FROM house_meetings WHERE date > $1 AND id IN (SELECT meeting_id FROM member_hm_attendance WHERE uid = $2 AND attendance_status != 'Attended')", NaiveDate::from(state.year_start), user).fetch_all(&state.db).await, None).await {
             Ok((_, hms)) => HttpResponse::Ok().json(hms),
             Err(e) => return e,
+        }
+    }
+}
+
+#[put("/house/{date}/{user}")]
+pub async fn modify_hm_attendance(path: Path<(NaiveDate, String)>, state: Data<AppState>, body: Json<AttendanceStatus>) -> impl Responder {
+    let (date, user) = path.into_inner();
+    log!(Level::Info, "PUT /attendance/house/{date}/{user}");
+    let new_status = body.into_inner();
+
+    let mut transaction = match open_transaction(&state.db).await {
+        Ok(t) => t,
+        Err(res) => return res,
+    };
+
+    if user.chars().next().unwrap().is_numeric() {
+        let user: i32 = match user.parse() {
+            Ok(user) => user,
+            Err(_) => {
+                log!(Level::Warn, "Invalid id");
+                return HttpResponse::BadRequest().body("Invalid id");
+            }
+        };
+        match log_query(query!("UPDATE freshman_hm_attendance SET attendance_status = $1 WHERE fid = $2 AND id IN (SELECT id FROM house_meetings WHERE date > $3)", new_status as AttendanceStatus, user, date).execute(&state.db).await.map(|_| ()), Some(transaction)).await {
+            Ok(tx) => transaction = tx.unwrap(),
+            Err(res) => return res,
+        }
+    } else {
+        match log_query(query!("UPDATE member_hm_attendance SET attendance_status = $1 WHERE uid = $2 AND id IN (SELECT id FROM house_meetings WHERE date > $3)", new_status as AttendanceStatus, user, date).execute(&state.db).await.map(|_| ()), Some(transaction)).await {
+            Ok(tx) => transaction = tx.unwrap(),
+            Err(res) => return res,
+        }
+    }
+
+    match transaction.commit().await {
+        Ok(_) => HttpResponse::Ok().body(""),
+        Err(e) => {
+            log!(Level::Error, "Transaction failed to commit");
+            HttpResponse::InternalServerError().body(e.to_string())
         }
     }
 }
