@@ -12,6 +12,10 @@ pub mod forms {
     pub mod routes;
 }
 
+pub mod batch {
+    pub mod batch;
+}
+
 pub async fn open_transaction(db: &Pool<Postgres>) -> Result<Transaction<Postgres>, HttpResponse> {
     match db.try_begin().await {
         Ok(Some(t)) => Ok(t),

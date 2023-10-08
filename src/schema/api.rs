@@ -8,7 +8,7 @@ use chrono::{NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use super::db::{AttendanceStatus, CommitteeType, CoopSemester, MajorProjectStatus};
+use super::db::{AttendanceStatus, CommitteeType, CoopSemester, MajorProjectStatus, BatchCondition, FreshmanBatchUser, MemberBatchUser, BatchConditionType, BatchComparison};
 
 pub struct ID {
     pub id: i32,
@@ -115,4 +115,24 @@ pub struct IntroFormSubmission {
     pub uid: String,
     pub social_events: String,
     pub comments: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct BatchConditionSubmission {
+    pub value: i32,
+    pub condition: BatchConditionType,
+    pub comparison: BatchComparison,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct FreshmanBatchSubmission {
+    pub fid: i32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct BatchSubmission {
+    pub name: String,
+    pub conditions: Vec<BatchConditionSubmission>,
+    pub freshman_users: Vec<FreshmanBatchSubmission>,
+    pub member_users: Vec<MemberBatchUser>,
 }
