@@ -1,5 +1,4 @@
 use crate::api::attendance::{directorship::*, seminar::*};
-use crate::ldap::client::LdapClient;
 use crate::schema::{
     api::{Directorship, MeetingAttendance, Seminar},
     db::CommitteeType,
@@ -14,7 +13,6 @@ use utoipa_swagger_ui::SwaggerUi;
 pub struct AppState {
     pub db: Pool<Postgres>,
     pub year_start: chrono::NaiveDateTime,
-    pub ldap: LdapClient,
 }
 
 pub fn configure_app(cfg: &mut web::ServiceConfig) {
@@ -60,25 +58,16 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
 }
 
 pub async fn get_app_data() -> Data<AppState> {
-    let db = PgPoolOptions::new()
+    let pool = PgPoolOptions::new()
         .connect(&env::var("DATABASE_URL").expect("DATABASE_URL Not set"))
         .await
         .expect("Could not connect to database");
-    let ldap = LdapClient::new(
-        &env::var("CONDITIONAL_LDAP_BIND_DN")
-            .expect("CONDITIONAL_LDAP_BIND_DN not set")
-            .as_str(),
-        &env::var("CONDITIONAL_LDAP_BIND_PW")
-            .expect("CONDITIONAL_LDAP_BIND_PW not set")
-            .as_str(),
-    )
-    .await;
+    println!("Successfully opened db connection");
     Data::new(AppState {
-        db,
+        db: pool,
         year_start: NaiveDateTime::new(
             NaiveDate::from_ymd_opt(2023, 6, 1).unwrap(),
             NaiveTime::from_hms_opt(0, 0, 0).unwrap(),
         ),
-        ldap,
     })
 }
