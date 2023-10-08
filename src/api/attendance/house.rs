@@ -1,7 +1,11 @@
-use actix_web::{get, post, put, web::{Data, Json, Path}, HttpResponse, Responder};
+use actix_web::{
+    get, post, put,
+    web::{Data, Json, Path},
+    HttpResponse, Responder,
+};
+use chrono::NaiveDate;
 use log::{log, Level};
 use sqlx::{query, query_as};
-use chrono::NaiveDate;
 
 use crate::{
     api::{log_query, log_query_as, open_transaction},
@@ -9,8 +13,12 @@ use crate::{
     schema::{api::*, db::AttendanceStatus},
 };
 
+#[utoipa::path(context_path="/attendance", responses((status = 200, description = "Submit new house meeting attendance"),(status = 500, description = "Error created by Query"),))]
 #[post("/house")]
-pub async fn submit_hm_attendance(state: Data<AppState>, body: Json<HouseAttendance>) -> impl Responder {
+pub async fn submit_hm_attendance(
+    state: Data<AppState>,
+    body: Json<HouseAttendance>,
+) -> impl Responder {
     log!(Level::Info, "POST /attendance/house");
     let mut transaction = match open_transaction(&state.db).await {
         Ok(t) => t,
@@ -70,8 +78,12 @@ pub async fn submit_hm_attendance(state: Data<AppState>, body: Json<HouseAttenda
     }
 }
 
+#[utoipa::path(context_path="/attendance", responses((status = 200, description = "Get house meetings missed for a given user", body = [NaiveDate]),(status = 400, description = "Invalid user"),(status = 500, description = "Error created by Query"),))]
 #[get("/house/{user}")]
-pub async fn get_hm_absences_by_user(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
+pub async fn get_hm_absences_by_user(
+    path: Path<(String,)>,
+    state: Data<AppState>,
+) -> impl Responder {
     let (user,) = path.into_inner();
     log!(Level::Info, "GET /attendance/house/{user}");
 
@@ -95,8 +107,12 @@ pub async fn get_hm_absences_by_user(path: Path<(String,)>, state: Data<AppState
     }
 }
 
+#[utoipa::path(context_path="/attendance", responses((status = 200, description = "Get house meetings not attended for a given user", body = [NaiveDate]),(status = 400, description = "Invalid user"),(status = 500, description = "Error created by Query"),))]
 #[get("/house/evals/{user}")]
-pub async fn get_hm_attendance_by_user_evals(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
+pub async fn get_hm_attendance_by_user_evals(
+    path: Path<(String,)>,
+    state: Data<AppState>,
+) -> impl Responder {
     let (user,) = path.into_inner();
     log!(Level::Info, "GET /attendance/house/evals/{user}");
 
@@ -120,8 +136,13 @@ pub async fn get_hm_attendance_by_user_evals(path: Path<(String,)>, state: Data<
     }
 }
 
+#[utoipa::path(context_path="/attendance", responses((status = 200, description = "Modify attendance for a given user at a given house meeting"),(status = 400, description = "Invalid user"),(status = 500, description = "Error created by Query"),))]
 #[put("/house/{date}/{user}")]
-pub async fn modify_hm_attendance(path: Path<(NaiveDate, String)>, state: Data<AppState>, body: Json<AttendanceStatus>) -> impl Responder {
+pub async fn modify_hm_attendance(
+    path: Path<(NaiveDate, String)>,
+    state: Data<AppState>,
+    body: Json<AttendanceStatus>,
+) -> impl Responder {
     let (date, user) = path.into_inner();
     log!(Level::Info, "PUT /attendance/house/{date}/{user}");
     let new_status = body.into_inner();

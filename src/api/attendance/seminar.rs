@@ -117,6 +117,7 @@ pub async fn submit_seminar_attendance(
     context_path="/attendance",
     responses(
         (status = 200, description = "List all seminars a user has attended", body = [Seminar]),
+        (status = 400, description = "Invalid user"),
         (status = 500, description = "Error created by Query"),
         )
     )]
