@@ -95,12 +95,12 @@ pub async fn get_hm_absences_by_user(
                 return HttpResponse::BadRequest().body("Invalid id");
             }
         };
-        match log_query_as(query_as!(Date, "SELECT date FROM house_meetings WHERE date > $1 AND id IN (SELECT meeting_id FROM freshman_hm_attendance WHERE fid = $2 AND attendance_status = 'Absent')", NaiveDate::from(state.year_start), user).fetch_all(&state.db).await, None).await {
+        match log_query_as(query_as!(Date, "SELECT date FROM house_meetings WHERE date > $1 AND id IN (SELECT meeting_id FROM freshman_hm_attendance WHERE fid = $2 AND attendance_status = 'Absent')", &NaiveDate::from(state.year_start), user).fetch_all(&state.db).await, None).await {
             Ok((_, hms)) => HttpResponse::Ok().json(hms),
             Err(e) => return e,
         }
     } else {
-        match log_query_as(query_as!(Date, "SELECT date FROM house_meetings WHERE date > $1 AND id IN (SELECT meeting_id FROM member_hm_attendance WHERE uid = $2 AND attendance_status = 'Absent')", NaiveDate::from(state.year_start), user).fetch_all(&state.db).await, None).await {
+        match log_query_as(query_as!(Date, "SELECT date FROM house_meetings WHERE date > $1 AND id IN (SELECT meeting_id FROM member_hm_attendance WHERE uid = $2 AND attendance_status = 'Absent')", &NaiveDate::from(state.year_start), user).fetch_all(&state.db).await, None).await {
             Ok((_, hms)) => HttpResponse::Ok().json(hms),
             Err(e) => return e,
         }

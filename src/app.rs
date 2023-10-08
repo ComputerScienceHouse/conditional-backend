@@ -54,7 +54,10 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             .service(delete_directorship)
             .service(edit_directorship_attendance)
             // House meeting routes
-            .service(submit_hm_attendance),
+            .service(submit_hm_attendance)
+            .service(get_hm_absences_by_user)
+            .service(get_hm_attendance_by_user_evals)
+            .service(modify_hm_attendance)
     )
     .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));
 }
