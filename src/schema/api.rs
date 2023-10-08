@@ -92,16 +92,7 @@ pub struct MajorProjectSubmission {
     pub name: String,
     /// Description of this major project
     pub description: Option<String>,
-}
-
-pub struct MajorProjectSubmissionEboard {
-    /// Username of member who submitted this major project
-    pub uid: String,
-    /// Name of this major project
-    pub name: String,
-    /// Description of this major project
-    pub description: Option<String>,
-    /// idk something fs
+    // Status of project status
     pub status: MajorProjectStatus,
 }
 
