@@ -22,6 +22,7 @@ pub struct Date {
 #[derive(Serialize, Deserialize)]
 pub struct EvalsHmAtt {
     pub attendance_status: AttendanceStatus,
+    pub excuse: Option<String>,
     pub date: NaiveDate,
 }
 

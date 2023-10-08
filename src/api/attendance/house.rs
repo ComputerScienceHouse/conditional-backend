@@ -124,12 +124,12 @@ pub async fn get_hm_attendance_by_user_evals(
                 return HttpResponse::BadRequest().body("Invalid id");
             }
         };
-        match log_query_as(query_as!(EvalsHmAtt, "select attendance_status as \"attendance_status:_\", date from (select * from freshman_hm_attendance where fid = $2) as mha left join house_meetings on mha.meeting_id = house_meetings.id where date > $1 and attendance_status != 'Attended'", NaiveDate::from(state.year_start), user).fetch_all(&state.db).await, None).await {
+        match log_query_as(query_as!(EvalsHmAtt, "select attendance_status as \"attendance_status:_\", excuse, date from (select * from freshman_hm_attendance where fid = $2) as mha left join house_meetings on mha.meeting_id = house_meetings.id where date > $1 and attendance_status != 'Attended'", NaiveDate::from(state.year_start), user).fetch_all(&state.db).await, None).await {
             Ok((_, hms)) => HttpResponse::Ok().json(hms),
             Err(e) => return e,
         }
     } else {
-        match log_query_as(query_as!(EvalsHmAtt, "select attendance_status as \"attendance_status:_\", date from (select * from member_hm_attendance where uid = $2) as mha left join house_meetings on mha.meeting_id = house_meetings.id where date > $1 and attendance_status != 'Attended'", NaiveDate::from(state.year_start), user).fetch_all(&state.db).await, None).await {
+        match log_query_as(query_as!(EvalsHmAtt, "select attendance_status as \"attendance_status:_\", excuse, date from (select * from member_hm_attendance where uid = $2) as mha left join house_meetings on mha.meeting_id = house_meetings.id where date > $1 and attendance_status != 'Attended'", NaiveDate::from(state.year_start), user).fetch_all(&state.db).await, None).await {
             Ok((_, hms)) => HttpResponse::Ok().json(hms),
             Err(e) => return e,
         }
@@ -137,15 +137,18 @@ pub async fn get_hm_attendance_by_user_evals(
 }
 
 #[utoipa::path(context_path="/attendance", responses((status = 200, description = "Modify attendance for a given user at a given house meeting"),(status = 400, description = "Invalid user"),(status = 500, description = "Error created by Query"),))]
-#[put("/house/{date}/{user}")]
+#[put("/house/{user}")]
 pub async fn modify_hm_attendance(
-    path: Path<(NaiveDate, String)>,
+    path: Path<(String,)>,
     state: Data<AppState>,
-    body: Json<AttendanceStatus>,
+    body: Json<EvalsHmAtt>,
 ) -> impl Responder {
-    let (date, user) = path.into_inner();
-    log!(Level::Info, "PUT /attendance/house/{date}/{user}");
-    let new_status = body.into_inner();
+    let (user,) = path.into_inner();
+    log!(Level::Info, "PUT /attendance/house/{user}");
+    let body = body.into_inner();
+    let new_status = body.attendance_status;
+    let excuse = body.excuse;
+    let date = body.date;
 
     let mut transaction = match open_transaction(&state.db).await {
         Ok(t) => t,
@@ -160,12 +163,12 @@ pub async fn modify_hm_attendance(
                 return HttpResponse::BadRequest().body("Invalid id");
             }
         };
-        match log_query(query!("UPDATE freshman_hm_attendance SET attendance_status = $1 WHERE fid = $2 AND id IN (SELECT id FROM house_meetings WHERE date > $3)", new_status as AttendanceStatus, user, date).execute(&state.db).await.map(|_| ()), Some(transaction)).await {
+        match log_query(query!("UPDATE freshman_hm_attendance SET attendance_status = $1, excuse = $2 WHERE fid = $3 AND id IN (SELECT id FROM house_meetings WHERE date > $4)", new_status as AttendanceStatus, excuse, user, date).execute(&state.db).await.map(|_| ()), Some(transaction)).await {
             Ok(tx) => transaction = tx.unwrap(),
             Err(res) => return res,
         }
     } else {
-        match log_query(query!("UPDATE member_hm_attendance SET attendance_status = $1 WHERE uid = $2 AND id IN (SELECT id FROM house_meetings WHERE date > $3)", new_status as AttendanceStatus, user, date).execute(&state.db).await.map(|_| ()), Some(transaction)).await {
+        match log_query(query!("UPDATE member_hm_attendance SET attendance_status = $1, excuse = $2 WHERE uid = $3 AND id IN (SELECT id FROM house_meetings WHERE date > $4)", new_status as AttendanceStatus, excuse, user, date).execute(&state.db).await.map(|_| ()), Some(transaction)).await {
             Ok(tx) => transaction = tx.unwrap(),
             Err(res) => return res,
         }
