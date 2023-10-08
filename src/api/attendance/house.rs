@@ -124,12 +124,12 @@ pub async fn get_hm_attendance_by_user_evals(
                 return HttpResponse::BadRequest().body("Invalid id");
             }
         };
-        match log_query_as(query_as!(Date, "SELECT date FROM house_meetings WHERE date > $1 AND id IN (SELECT meeting_id FROM freshman_hm_attendance WHERE fid = $2 AND attendance_status != 'Attended')", NaiveDate::from(state.year_start), user).fetch_all(&state.db).await, None).await {
+        match log_query_as(query_as!(EvalsHmAtt, "select attendance_status as \"attendance_status:_\", date from (select * from freshman_hm_attendance where fid = $2) as mha left join house_meetings on mha.meeting_id = house_meetings.id where date > $1 and attendance_status != 'Attended'", NaiveDate::from(state.year_start), user).fetch_all(&state.db).await, None).await {
             Ok((_, hms)) => HttpResponse::Ok().json(hms),
             Err(e) => return e,
         }
     } else {
-        match log_query_as(query_as!(Date, "SELECT date FROM house_meetings WHERE date > $1 AND id IN (SELECT meeting_id FROM member_hm_attendance WHERE uid = $2 AND attendance_status != 'Attended')", NaiveDate::from(state.year_start), user).fetch_all(&state.db).await, None).await {
+        match log_query_as(query_as!(EvalsHmAtt, "select attendance_status as \"attendance_status:_\", date from (select * from member_hm_attendance where uid = $2) as mha left join house_meetings on mha.meeting_id = house_meetings.id where date > $1 and attendance_status != 'Attended'", NaiveDate::from(state.year_start), user).fetch_all(&state.db).await, None).await {
             Ok((_, hms)) => HttpResponse::Ok().json(hms),
             Err(e) => return e,
         }

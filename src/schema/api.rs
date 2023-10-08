@@ -19,6 +19,12 @@ pub struct Date {
     pub date: NaiveDate,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct EvalsHmAtt {
+    pub attendance_status: AttendanceStatus,
+    pub date: NaiveDate,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct Seminar {
     /// Name of the technical seminar
