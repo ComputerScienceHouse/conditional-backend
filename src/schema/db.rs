@@ -415,10 +415,13 @@ pub struct BatchCondition {
     pub batch_id: i32,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct FreshmanBatchPull {
     pub id: i32,
     pub fid: i32,
-    pub batch_id: i32,
+    pub approved: bool,
+    pub reason: String,
+    pub puller: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
@@ -428,10 +431,13 @@ pub struct FreshmanBatchUser {
     pub batch_id: i32,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct MemberBatchPull {
     pub id: i32,
     pub uid: String,
-    pub batch_id: i32,
+    pub approved: bool,
+    pub reason: String,
+    pub puller: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]

@@ -58,3 +58,108 @@ pub async fn create_batch(path: Path<(String,)>, state: Data<AppState>, body: Js
         }
     }
 }
+
+#[post("/evals/batch/pull/{user}")]
+pub async fn pull_user(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
+    let (user,) = path.into_inner();
+    log!(Level::Info, "POST /evals/batch/pull/{user}");
+    let mut transaction = match open_transaction(&state.db).await {
+        Ok(t) => t,
+        Err(res) => return res,
+    };
+
+    if user.chars().next().unwrap().is_numeric() {
+        let user: i32 = match user.parse() {
+            Ok(user) => user,
+            Err(_) => {
+                log!(Level::Warn, "Invalid id");
+                return HttpResponse::BadRequest().body("Invalid id");
+            }
+        };
+        match log_query(query!("DELETE FROM freshman_batch_pulls WHERE fid = $1", user).execute(&state.db).await.map(|_| ()), Some(transaction)).await {
+            Ok(tx) => transaction = tx.unwrap(),
+            Err(res) => return res,
+        }
+        match log_query(query!("INSERT INTO freshman_batch_pulls(fid, approved) VALUES ($1, true)", user).execute(&state.db).await.map(|_| ()), Some(transaction)).await {
+            Ok(tx) => transaction = tx.unwrap(),
+            Err(res) => return res,
+        }
+    } else {
+        match log_query(query!("DELETE FROM member_batch_pulls WHERE uid = $1", user).execute(&state.db).await.map(|_| ()), Some(transaction)).await {
+            Ok(tx) => transaction = tx.unwrap(),
+            Err(res) => return res,
+        }
+        match log_query(query!("INSERT INTO member_batch_pulls(uid, approved) VALUES ($1, true)", user).execute(&state.db).await.map(|_| ()), Some(transaction)).await {
+            Ok(tx) => transaction = tx.unwrap(),
+            Err(res) => return res,
+        }
+    }
+
+    // Commit transaction
+    match transaction.commit().await {
+        Ok(_) => HttpResponse::Created().finish(),
+        Err(e) => {
+            log!(Level::Error, "Transaction failed to commit");
+            HttpResponse::InternalServerError().body(e.to_string())
+        }
+    }
+}
+
+#[post("/evals/batch/pr/{user}")]
+pub async fn submit_batch_pr(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
+    let (user,) = path.into_inner();
+    log!(Level::Info, "POST /evals/batch/pr/{user}");
+    let mut transaction = match open_transaction(&state.db).await {
+        Ok(t) => t,
+        Err(res) => return res,
+    };
+
+    if user.chars().next().unwrap().is_numeric() {
+        let user: i32 = match user.parse() {
+            Ok(user) => user,
+            Err(_) => {
+                log!(Level::Warn, "Invalid id");
+                return HttpResponse::BadRequest().body("Invalid id");
+            }
+        };
+        match log_query(query!("INSERT INTO freshman_batch_pulls(fid, approved) VALUES ($1, false) ON CONFLICT DO NOTHING", user).execute(&state.db).await.map(|_| ()), Some(transaction)).await {
+            Ok(tx) => transaction = tx.unwrap(),
+            Err(res) => return res,
+        }
+    } else {
+        match log_query(query!("INSERT INTO member_batch_pulls(uid, approved) VALUES ($1, false) ON CONFLICT DO NOTHING", user).execute(&state.db).await.map(|_| ()), Some(transaction)).await {
+            Ok(tx) => transaction = tx.unwrap(),
+            Err(res) => return res,
+        }
+    }
+
+    // Commit transaction
+    match transaction.commit().await {
+        Ok(_) => HttpResponse::Created().finish(),
+        Err(e) => {
+            log!(Level::Error, "Transaction failed to commit");
+            HttpResponse::InternalServerError().body(e.to_string())
+        }
+    }
+}
+
+#[get("/evals/batch/pr")]
+pub async fn get_pull_requests(state: Data<AppState>) -> impl Responder {
+    log!(Level::Info, "GET /evals/batch/pr");
+    let mut result = PullRequests {
+        frosh: Vec::new(),
+        members: Vec::new(),
+    };
+    match log_query_as(query_as!(FreshmanPull, "select fid, reason, puller from freshman_batch_pulls where approved = false").fetch_all(&state.db).await, None).await {
+        Ok((_,i)) => result.frosh = i,
+        Err(res) => return res,
+
+    }
+    match log_query_as(query_as!(MemberPull, "select uid, reason, puller from member_batch_pulls where approved = false").fetch_all(&state.db).await, None).await {
+        Ok((_,i)) => result.members = i,
+        Err(res) => return res,
+
+    }
+
+    HttpResponse::Ok().json(result)
+}
