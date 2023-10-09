@@ -35,7 +35,6 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             delete_directorship,
             get_intro_evals,
             get_member_evals,
-            get_conditional,
         ),
         components(schemas(Seminar, Directorship, MeetingAttendance, CommitteeType)),
         tags(

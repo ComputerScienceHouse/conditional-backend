@@ -18,8 +18,6 @@ fn split_packet(packets: &Vec<Packet>) -> (Vec<String>, Vec<String>, Vec<i64>, V
         .iter()
         .map(|p| {
             (
-                // (p.clone().username.unwrap(), "".to_owned()),
-                // (0, 0),
                 (
                     p.clone().username.unwrap().trim().to_owned(),
                     p.clone().name.unwrap(),
@@ -74,7 +72,7 @@ async fn get_freshmen_sdm(
         query_as!(
             IntroStatus,
             "SELECT packet.name as \"name!\",
-NULL as uid,
+                    NULL as uid,
                     status.seminars as \"seminars!\",
                     status.directorships as \"directorships!\",
                     status.missed_hms as \"missed_hms!\",
@@ -290,13 +288,6 @@ pub async fn get_member_evals(state: Data<AppState>) -> impl Responder {
     }
 }
 
-#[utoipa::path(
-    context_path="/evals",
-    responses(
-        (status = 200, description = "Get all evals statuses"),
-        (status = 500, description = "Error created by Query"),
-        )
-    )]
 #[get("/conditional")]
 pub async fn get_conditional() -> impl Responder {
     log!(Level::Info, "Get /evals/conditional");
@@ -306,7 +297,7 @@ pub async fn get_conditional() -> impl Responder {
 #[utoipa::path(
     context_path="/evals",
     responses(
-        (status = 200, description = "Get gatekeep status for a specific user"),
+        (status = 200, description = "Get gatekeep status for a specific user", body = MemberStatus),
         (status = 500, description = "Error created by Query"),
         )
     )]
