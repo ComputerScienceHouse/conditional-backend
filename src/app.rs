@@ -1,5 +1,7 @@
 use crate::api::attendance::{directorship::*, house::*, seminar::*};
 use crate::api::batch::batch::*;
+use crate::api::evals::routes::*;
+use crate::ldap::client::LdapClient;
 use crate::schema::{
     api::{Directorship, MeetingAttendance, Seminar},
     db::CommitteeType,
@@ -13,7 +15,9 @@ use utoipa_swagger_ui::SwaggerUi;
 
 pub struct AppState {
     pub db: Pool<Postgres>,
+    pub packet_db: Pool<Postgres>,
     pub year_start: chrono::NaiveDateTime,
+    pub ldap: LdapClient,
 }
 
 pub fn configure_app(cfg: &mut web::ServiceConfig) {
@@ -30,6 +34,8 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             get_directorships,
             edit_directorship_attendance,
             delete_directorship,
+            get_intro_evals,
+            get_member_evals,
         ),
         components(schemas(Seminar, Directorship, MeetingAttendance, CommitteeType)),
         tags(
@@ -62,26 +68,47 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
     )
     .service(
         scope("/evals")
+            // Evals routes
+            .service(get_intro_evals)
+            .service(get_member_evals)
+            .service(get_conditional)
+            .service(get_gatekeep)
             .service(create_batch)
             .service(pull_user)
             .service(submit_batch_pr)
-            .service(get_pull_requests)
-//            .service(get_batches)
+            .service(get_pull_requests),
+        //            .service(get_batches)
     )
     .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));
 }
 
 pub async fn get_app_data() -> Data<AppState> {
-    let pool = PgPoolOptions::new()
+    let conditional_pool = PgPoolOptions::new()
         .connect(&env::var("DATABASE_URL").expect("DATABASE_URL Not set"))
         .await
         .expect("Could not connect to database");
-    println!("Successfully opened db connection");
+    println!("Successfully opened conditional db connection");
+    let packet_pool = PgPoolOptions::new()
+        .connect(&env::var("PACKET_DATABASE_URL").expect("PACKET_DATABASE_URL Not set"))
+        .await
+        .expect("Could not connect to database");
+    println!("Successfully opened packet db connection");
+    let ldap = LdapClient::new(
+        &env::var("CONDITIONAL_LDAP_BIND_DN")
+            .expect("CONDITIONAL_LDAP_BIND_DN not set")
+            .as_str(),
+        &env::var("CONDITIONAL_LDAP_BIND_PW")
+            .expect("CONDITIONAL_LDAP_BIND_PW not set")
+            .as_str(),
+    )
+    .await;
     Data::new(AppState {
-        db: pool,
+        db: conditional_pool,
+        packet_db: packet_pool,
         year_start: NaiveDateTime::new(
             NaiveDate::from_ymd_opt(2023, 6, 1).unwrap(),
             NaiveTime::from_hms_opt(0, 0, 0).unwrap(),
         ),
+        ldap,
     })
 }

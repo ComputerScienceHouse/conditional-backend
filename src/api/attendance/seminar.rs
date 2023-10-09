@@ -211,7 +211,7 @@ pub async fn get_seminars(state: Data<AppState>) -> impl Responder {
                  INNER JOIN member_seminar_attendance msa ON
                      msa.seminar_id = ts.id
                  WHERE timestamp > $1::timestamp
-                 GROUP BY ts.id, ts.name, ts.\"timestamp\", ts.approved) AS member_seminars
+                 GROUP BY ts.id, ts.name, ts.timestamp, ts.approved) AS member_seminars
             INNER JOIN freshman_seminar_attendance fsa ON
                 fsa.seminar_id = member_seminars.id
             GROUP BY member_seminars.id, member_seminars.name, member_seminars.timestamp, \

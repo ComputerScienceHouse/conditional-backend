@@ -48,9 +48,9 @@ pub async fn submit_hm_attendance(
 
     let frosh_id = vec![id; body.frosh.len()];
     let member_id = vec![id; body.members.len()];
-    let frosh_names: Vec<i32> = body.frosh.iter().map(|a| a.name).collect();
+    let frosh_names: Vec<i32> = body.frosh.iter().map(|a| a.fid).collect();
     let frosh_statuses: Vec<AttendanceStatus> = body.frosh.iter().map(|a| a.att_status).collect();
-    let member_names: Vec<i32> = body.frosh.iter().map(|a| a.name).collect();
+    let member_names: Vec<i32> = body.frosh.iter().map(|a| a.fid).collect();
     let member_statuses: Vec<AttendanceStatus> = body.frosh.iter().map(|a| a.att_status).collect();
 
     match log_query(

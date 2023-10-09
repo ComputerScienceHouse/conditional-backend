@@ -1,4 +1,4 @@
-// TODO: Define API Schema that the API routes will deliver to the frontend
+// Define API Schema that the API routes will deliver to the frontend
 // These are explicitly different from the DB schema. As, for example,
 // directorship attendance may be relayed to the fronted as a list of member
 // names / usernames, while directorship attendance is stored in the database
@@ -6,9 +6,14 @@
 
 use chrono::{NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
+use sqlx::types::Json;
 use utoipa::ToSchema;
 
-use super::db::{AttendanceStatus, CommitteeType, CoopSemester, MajorProjectStatus, BatchCondition, FreshmanBatchUser, MemberBatchUser, BatchConditionType, BatchComparison, FreshmanBatchPull, MemberBatchPull};
+use super::db::{
+    AttendanceStatus, BatchComparison, BatchCondition, BatchConditionType, CommitteeType,
+    CoopSemester, FreshmanBatchPull, FreshmanBatchUser, MajorProjectStatus, MemberBatchPull,
+    MemberBatchUser,
+};
 
 pub struct ID {
     pub id: i32,
@@ -24,6 +29,52 @@ pub struct EvalsHmAtt {
     pub attendance_status: AttendanceStatus,
     pub excuse: Option<String>,
     pub date: NaiveDate,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct IntroStatus {
+    /// Name of the intro member
+    pub name: Option<String>,
+    /// Name of the intro member
+    pub uid: Option<String>,
+    /// Number of seminars attended
+    pub seminars: i64,
+    /// Number of directorships attended
+    pub directorships: i64,
+    /// Number of house meetings missed
+    pub missed_hms: i64,
+    /// Number of upperclassmen packet signatures recieved
+    pub signatures: i64,
+    /// Number of upperclassmen packet signatures for 100%
+    pub max_signatures: i64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema, sqlx::FromRow)]
+pub struct Packet {
+    /// Intro member's rit username
+    pub username: Option<String>,
+    /// Name of the intro member
+    pub name: Option<String>,
+    /// Number of upperclassmen packet signatures recieved
+    pub signatures: Option<i64>,
+    /// Number of upperclassmen packet signatures for 100%
+    pub max_signatures: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct MemberStatus {
+    /// Name of the member
+    pub name: String,
+    /// CSH username
+    pub uid: String,
+    /// Number of seminars attended
+    pub seminars: i64,
+    /// Number of directorships attended
+    pub directorships: i64,
+    /// Number of house meetings missed
+    pub missed_hms: i64,
+    /// Number of major projects passed
+    pub major_projects: i64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
@@ -74,7 +125,7 @@ pub struct MemberHouseAttendance {
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct FroshHouseAttendance {
-    pub name: i32,
+    pub fid: i32,
     pub att_status: AttendanceStatus,
 }
 
