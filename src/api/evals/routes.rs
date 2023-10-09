@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 use crate::api::log_query_as;
 use crate::app::AppState;
-use crate::ldap::get_intro_members;
+use crate::ldap::{get_active_upperclassmen, get_intro_members};
 use crate::schema::api::{IntroStatus, MemberStatus, Packet};
 use actix_web::{get, web::Data, HttpResponse, Responder};
 use log::{log, Level};
@@ -132,7 +132,7 @@ NULL as uid,
     }
 }
 
-async fn get_member_sdm(
+async fn get_intro_member_sdm(
     uids: &Vec<String>,
     rit_usernames: &Vec<String>,
     packets: &Vec<Packet>,
@@ -183,6 +183,51 @@ AND packet.max_signatures IS NOT NULL",
     }
 }
 
+async fn get_member_sdm(
+    uids: &Vec<String>,
+    names: &Vec<String>,
+    year_start: &chrono::NaiveDateTime,
+    conditional_db: &Pool<Postgres>,
+) -> Result<Vec<MemberStatus>, HttpResponse> {
+    match log_query_as(
+        query_as!(
+            MemberStatus,
+          "
+SELECT sdm.uid AS \"uid!\",
+                    sdm.name as \"name!\",
+                    sdm.seminars as \"seminars!\",
+                    sdm.directorships as \"directorships!\",
+                    sdm.missed_hms as \"missed_hms!\",
+                    count(mp.status) FILTER(WHERE mp.status='Passed') AS \"major_projects!\"
+FROM (SELECT sd.uid, sd.name, sd.seminars, sd.directorships, count(mha.attendance_status) FILTER(WHERE mha.attendance_status = 'Absent') AS missed_hms
+FROM (SELECT s.uid, s.name, s.seminars, count(cm.approved) FILTER(WHERE cm.approved) AS directorships
+FROM (SELECT ur.uid, ur.name, count(ts.approved) FILTER(WHERE ts.approved) AS seminars
+FROM UNNEST($1::varchar[], $2::varchar[]) AS ur(uid, name)
+LEFT JOIN member_seminar_attendance msa ON msa.uid = ur.uid
+LEFT JOIN (SELECT * FROM technical_seminars ts WHERE ts.timestamp > $3::timestamp) ts ON ts.id = msa.seminar_id
+GROUP BY ur.uid, ur.name) AS s
+LEFT JOIN member_committee_attendance mca ON mca.uid = s.uid
+LEFT JOIN (SELECT * FROM committee_meetings cm WHERE cm.timestamp > $3::timestamp) cm ON cm.id = mca.meeting_id 
+GROUP BY s.uid, s.name, s.seminars) AS sd
+LEFT JOIN member_hm_attendance mha ON mha.uid = sd.uid
+LEFT JOIN (SELECT * FROM house_meetings hm WHERE hm.date > $3::timestamp) hm ON hm.id = mha.meeting_id
+GROUP BY sd.uid, sd.name, sd.seminars, sd.directorships) as sdm
+LEFT JOIN (SELECT * FROM major_projects mp WHERE mp.date > $3::timestamp) mp ON mp.uid = sdm.uid
+GROUP BY sdm.uid, sdm.name, sdm.seminars, sdm.directorships, sdm.missed_hms",
+        uids, names, year_start)
+        .fetch_all(conditional_db)
+        .await,
+        None,
+    )
+    .await
+    {
+        Ok((_, intros)) => {
+          Ok(intros)
+        }
+        Err(e) => Err(e),
+    }
+}
+
 #[utoipa::path(
     context_path="/evals",
     responses(
@@ -195,40 +240,31 @@ pub async fn get_intro_evals(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "Get /evals/intro");
     let packets: Vec<Packet>;
     let mut freshmen_status: Vec<IntroStatus>;
-
     match get_all_packets(&state.packet_db).await {
         Ok(ps) => {
             packets = ps;
         }
         Err(e) => return e,
     };
-
     let (intro_uids, intro_rit_usernames): (Vec<String>, Vec<String>) =
         get_intro_members(&state.ldap)
             .await
             .iter()
             .map(|x| (x.uid.clone(), x.rit_username.clone()))
             .unzip();
-
-    // return HttpResponse::Ok().json(vec![intro_uids, intro_rit_usernames]);
-
     match get_freshmen_sdm(&packets, &state.db).await {
         Ok(intros) => {
             freshmen_status = intros;
         }
         Err(e) => return e,
     };
-
-    match get_member_sdm(&intro_uids, &intro_rit_usernames, &packets, &state.db).await {
+    match get_intro_member_sdm(&intro_uids, &intro_rit_usernames, &packets, &state.db).await {
         Ok(mut intros) => {
             freshmen_status.append(&mut intros);
         }
         Err(e) => return e,
     };
-
     HttpResponse::Ok().json(freshmen_status)
-
-    // HttpResponse::NotImplemented()
 }
 
 #[utoipa::path(
@@ -239,9 +275,21 @@ pub async fn get_intro_evals(state: Data<AppState>) -> impl Responder {
         )
     )]
 #[get("/member")]
-pub async fn get_member_evals(_state: Data<AppState>) -> impl Responder {
+#[get("/gatekeep")]
+pub async fn get_member_evals(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "Get /evals/member");
-    HttpResponse::NotImplemented()
+    let member_status: Vec<MemberStatus>;
+    let (uids, names): (Vec<String>, Vec<String>) = get_active_upperclassmen(&state.ldap)
+        .await
+        .iter()
+        .map(|x| (x.uid.clone(), x.cn.clone()))
+        .unzip();
+    // return HttpResponse::Ok().json((uids, names));
+    match get_member_sdm(&uids, &names, &state.year_start, &state.db).await {
+        Ok(ms) => HttpResponse::Ok().json(ms),
+        Err(e) => return e,
+    }
+    // HttpResponse::NotImplemented()
 }
 
 #[utoipa::path(

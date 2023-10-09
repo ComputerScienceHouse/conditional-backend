@@ -28,9 +28,9 @@ pub struct IntroStatus {
     /// Number of house meetings missed
     pub missed_hms: i64,
     /// Number of upperclassmen packet signatures recieved
-    pub signatures: Option<i64>,
+    pub signatures: i64,
     /// Number of upperclassmen packet signatures for 100%
-    pub max_signatures: Option<i64>,
+    pub max_signatures: i64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema, sqlx::FromRow)]
@@ -47,16 +47,18 @@ pub struct Packet {
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct MemberStatus {
-    /// Username
+    /// Name of the member
+    pub name: String,
+    /// CSH username
     pub uid: String,
     /// Number of seminars attended
-    pub seminars: i32,
+    pub seminars: i64,
     /// Number of directorships attended
-    pub directorships: i32,
+    pub directorships: i64,
     /// Number of house meetings missed
-    pub missed_hms: i32,
+    pub missed_hms: i64,
     /// Number of major projects passed
-    pub major_projects: i32,
+    pub major_projects: i64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
