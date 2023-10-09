@@ -1,20 +1,31 @@
-use crate::api::attendance::{directorship::*, seminar::*};
-use crate::ldap::client::LdapClient;
-use crate::schema::{
-    api::{Directorship, MeetingAttendance, Seminar},
-    db::CommitteeType,
+use crate::{
+    api::attendance::{directorship::*, seminar::*},
+    ldap::client::LdapClient,
+    schema::{
+        api::{Directorship, MeetingAttendance, Seminar},
+        db::CommitteeType,
+    },
 };
 use actix_web::web::{self, scope, Data};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+use openssl::pkey::{PKey, Public};
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
-use std::env;
-use utoipa::OpenApi;
+use std::{
+    collections::HashMap,
+    env,
+    sync::{Arc, Mutex},
+};
+use utoipa::{
+    openapi::security::{ApiKey, ApiKeyValue, SecurityScheme},
+    Modify, OpenApi,
+};
 use utoipa_swagger_ui::SwaggerUi;
 
 pub struct AppState {
     pub db: Pool<Postgres>,
     pub year_start: chrono::NaiveDateTime,
     pub ldap: LdapClient,
+    pub jwt_cache: Arc<Mutex<HashMap<String, PKey<Public>>>>,
 }
 
 pub fn configure_app(cfg: &mut web::ServiceConfig) {
@@ -39,24 +50,39 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
     )]
     struct ApiDoc;
 
+    struct SecurityAddon;
+
+    impl Modify for SecurityAddon {
+        fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+            let components = openapi.components.as_mut().unwrap();
+            components.add_security_scheme(
+                "api_key",
+                SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::new("frontend_api_key"))),
+            )
+        }
+    }
+
     let openapi = ApiDoc::openapi();
 
     cfg.service(
-        scope("/attendance")
-            // Seminar routes
-            .service(submit_seminar_attendance)
-            .service(get_seminars_by_user)
-            .service(get_seminars)
-            .service(delete_seminar)
-            .service(edit_seminar_attendance)
-            // Directorship routes
-            .service(submit_directorship_attendance)
-            .service(get_directorships_by_user)
-            .service(get_directorships)
-            .service(delete_directorship)
-            .service(edit_directorship_attendance),
-    )
-    .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));
+        scope("/api")
+            .service(
+                scope("/attendance")
+                    // Seminar routes
+                    .service(submit_seminar_attendance)
+                    .service(get_seminars_by_user)
+                    .service(get_seminars)
+                    .service(delete_seminar)
+                    .service(edit_seminar_attendance)
+                    // Directorship routes
+                    .service(submit_directorship_attendance)
+                    .service(get_directorships_by_user)
+                    .service(get_directorships)
+                    .service(delete_directorship)
+                    .service(edit_directorship_attendance),
+            )
+            .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi)),
+    );
 }
 
 pub async fn get_app_data() -> Data<AppState> {
