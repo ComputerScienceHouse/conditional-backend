@@ -1,11 +1,14 @@
 use lazy_static::lazy_static;
 use ldap3::SearchEntry;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::str::FromStr;
+use utoipa::ToSchema;
 
 #[allow(non_snake_case)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct LdapUser {
     pub dn: String,
     pub cn: String,

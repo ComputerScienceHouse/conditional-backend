@@ -7,6 +7,7 @@ use actix_web::{
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose, Engine as _};
 use futures::{executor::block_on, future::LocalBoxFuture, lock::Mutex};
+use lazy_static::lazy_static;
 use openssl::{
     bn::BigNum,
     hash::MessageDigest,
@@ -201,16 +202,16 @@ pub struct CSHAuth {
     evals: bool,
 }
 
-impl CSHAuth {
-    fn enable_security() -> bool {
-        env::var("SECURITY_ENABLED")
-            .map(|x| x.parse::<bool>().unwrap_or(true))
-            .unwrap_or(true)
-    }
+lazy_static! {
+    static ref SECURITY_ENABLED: bool = env::var("SECURITY_ENABLED")
+        .map(|x| x.parse::<bool>().unwrap_or(true))
+        .unwrap_or(true);
+}
 
+impl CSHAuth {
     pub fn admin_only() -> Self {
         Self {
-            enabled: CSHAuth::enable_security(),
+            enabled: *SECURITY_ENABLED,
             admin: true,
             eboard: false,
             evals: false,
@@ -219,7 +220,7 @@ impl CSHAuth {
 
     pub fn eboard_only() -> Self {
         Self {
-            enabled: CSHAuth::enable_security(),
+            enabled: *SECURITY_ENABLED,
             admin: false,
             eboard: true,
             evals: false,
@@ -228,7 +229,7 @@ impl CSHAuth {
 
     pub fn evals_only() -> Self {
         Self {
-            enabled: CSHAuth::enable_security(),
+            enabled: *SECURITY_ENABLED,
             admin: false,
             eboard: false,
             evals: true,
@@ -237,7 +238,7 @@ impl CSHAuth {
 
     pub fn enabled() -> Self {
         Self {
-            enabled: CSHAuth::enable_security(),
+            enabled: *SECURITY_ENABLED,
             admin: false,
             eboard: false,
             evals: false,

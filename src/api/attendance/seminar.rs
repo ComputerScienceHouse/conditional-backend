@@ -11,7 +11,7 @@ use log::{log, Level};
 use sqlx::{query, query_as};
 
 #[utoipa::path(
-    context_path="/attendance",
+    context_path="/api/attendance",
     responses(
         (status = 200, description = "Submit new seminar attendance"),
         (status = 500, description = "Error created by Query"),
@@ -115,7 +115,7 @@ pub async fn submit_seminar_attendance(
 }
 
 #[utoipa::path(
-    context_path="/attendance",
+    context_path="/api/attendance",
     responses(
         (status = 200, description = "List all seminars a user has attended", body = [Seminar]),
         (status = 500, description = "Error created by Query"),
@@ -190,7 +190,7 @@ pub async fn get_seminars_by_user(path: Path<(String,)>, state: Data<AppState>) 
 }
 
 #[utoipa::path(
-    context_path="/attendance",
+    context_path="/api/attendance",
     responses(
         (status = 200, description = "Get all seminars in the current operating session", body = [Seminar]),
         (status = 500, description = "Error created by Query"),
@@ -228,7 +228,7 @@ pub async fn get_seminars(state: Data<AppState>) -> impl Responder {
 }
 
 #[utoipa::path(
-    context_path="/attendance",
+    context_path="/api/attendance",
     responses(
         (status = 200, description = "Delete seminar with a given id"),
         (status = 500, description = "Error created by Query"),
@@ -310,7 +310,7 @@ pub async fn delete_seminar(path: Path<(String,)>, state: Data<AppState>) -> imp
 }
 
 #[utoipa::path(
-    context_path="/attendance",
+    context_path="/api/attendance",
     responses(
         (status = 200, description = "Update seminar"),
         (status = 500, description = "Error created by Query"),

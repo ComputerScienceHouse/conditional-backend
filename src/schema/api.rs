@@ -101,6 +101,22 @@ pub struct DirectorshipAttendance {
     pub frosh: Vec<i32>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct NewIntroMember {
+    pub name: String,
+    pub eval_date: chrono::NaiveDate,
+    pub onfloor_status: bool,
+    pub room_number: Option<String>,
+    pub rit_username: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct FreshmanUpgrade {
+    pub fid: i32,
+    pub uid: String,
+    pub signatures_missed: i32,
+}
+
 pub struct IndividualHouseAttendance {
     pub name: String,
     pub att_status: AttendanceStatus,

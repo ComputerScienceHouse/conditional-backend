@@ -1,12 +1,12 @@
 use crate::{
     api::{
-      attendance::{directorship::*, seminar::*},
-      evals::routes::*;
+        attendance::{directorship::*, seminar::*},
+        evals::routes::*,
+        users::routes::*,
     },
-    auth::CSHAuth,
-    ldap::client::LdapClient,
+    ldap::{client::LdapClient, user::LdapUser},
     schema::{
-        api::{Directorship, MeetingAttendance, Seminar},
+        api::{Directorship, FreshmanUpgrade, IntroStatus, MemberStatus, NewIntroMember, Seminar},
         db::CommitteeType,
     },
 };
@@ -34,23 +34,35 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
     #[derive(OpenApi)]
     #[openapi(
         paths(
+            // attendance/seminar
             submit_seminar_attendance,
             get_seminars_by_user,
             get_seminars,
             delete_seminar,
             edit_seminar_attendance,
+            // attendance/directorship
             submit_directorship_attendance,
             get_directorships_by_user,
             get_directorships,
             edit_directorship_attendance,
             delete_directorship,
+            // evals
             get_intro_evals,
             get_member_evals,
+            get_gatekeep,
+            // user
+            get_voting_count,
+            get_active_count,
+            search_members,
+            all_members,
+            create_freshman_user,
+            convert_freshman_user,
         ),
-        components(schemas(Seminar, Directorship, MeetingAttendance, CommitteeType)),
+        components(schemas(Seminar, Directorship, CommitteeType, LdapUser, NewIntroMember, FreshmanUpgrade, MemberStatus, IntroStatus)),
         tags(
             (name = "Conditional", description = "Conditional Actix API")
-            )
+            ),
+        modifiers(&SecurityAddon)
     )]
     struct ApiDoc;
 
@@ -69,29 +81,40 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
     let openapi = ApiDoc::openapi();
 
     cfg.service(
-        scope("/api").service(
-            scope("/attendance")
-                // Seminar routes
-                .service(submit_seminar_attendance)
-                .service(get_seminars_by_user)
-                .service(get_seminars)
-                .service(delete_seminar)
-                .service(edit_seminar_attendance)
-                // Directorship routes
-                .service(submit_directorship_attendance)
-                .service(get_directorships_by_user)
-                .service(get_directorships)
-                .service(delete_directorship)
-                .service(edit_directorship_attendance),
-        ),
-    )
-    .service(
-        scope("/evals")
-            // Evals routes
-            .service(get_intro_evals)
-            .service(get_member_evals)
-            .service(get_conditional)
-            .service(get_gatekeep),
+        scope("/api")
+            .service(
+                scope("/attendance")
+                    // Seminar routes
+                    .service(submit_seminar_attendance)
+                    .service(get_seminars_by_user)
+                    .service(get_seminars)
+                    .service(delete_seminar)
+                    .service(edit_seminar_attendance)
+                    // Directorship routes
+                    .service(submit_directorship_attendance)
+                    .service(get_directorships_by_user)
+                    .service(get_directorships)
+                    .service(delete_directorship)
+                    .service(edit_directorship_attendance),
+            )
+            .service(
+                scope("/evals")
+                    // Evals routes
+                    .service(get_intro_evals)
+                    .service(get_member_evals)
+                    .service(get_conditional)
+                    .service(get_gatekeep),
+            )
+            .service(
+                scope("/user")
+                    // User routes
+                    .service(get_voting_count)
+                    .service(get_active_count)
+                    .service(search_members)
+                    .service(all_members)
+                    .service(create_freshman_user)
+                    .service(convert_freshman_user),
+            ),
     )
     .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));
 }

@@ -54,6 +54,24 @@ pub async fn get_user(client: &LdapClient, user: &str) -> Vec<LdapUser> {
         None,
     )
     .await;
+
+    res.iter()
+        .map(|r| {
+            let user = SearchEntry::construct(r.to_owned());
+            LdapUser::from_entry(&user)
+        })
+        .collect()
+}
+
+pub async fn search_users(client: &LdapClient, query: &str) -> Vec<LdapUser> {
+    let res = ldap_search(
+        client,
+        "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
+        format!("|(uid=*{query}*)(cn=*{query}*)").as_str(),
+        None,
+    )
+    .await;
+
     res.iter()
         .map(|r| {
             let user = SearchEntry::construct(r.to_owned());
