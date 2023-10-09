@@ -303,51 +303,9 @@ pub async fn get_member_evals(state: Data<AppState>) -> impl Responder {
         )
     )]
 #[get("/conditional")]
-pub async fn get_conditional(state: Data<AppState>) -> impl Responder {
+pub async fn get_conditional() -> impl Responder {
     log!(Level::Info, "Get /evals/conditional");
-    let packets: Vec<Packet>;
-    let intros: Vec<IntroStatus>;
-
-    // return HttpResponse::Ok().json(packets);
-    match get_all_packets(&state.packet_db).await {
-        Ok(ps) => {
-            packets = ps;
-        }
-        Err(e) => return e,
-    };
-
-    let ((usernames, names), (signatures, max_signatures)): (
-        (Vec<String>, Vec<String>),
-        (Vec<i64>, Vec<i64>),
-    ) = packets
-        .iter()
-        .map(|p| {
-            (
-                // (p.clone().username.unwrap(), "".to_owned()),
-                // (0, 0),
-                (
-                    p.clone().username.unwrap().trim().to_owned(),
-                    p.clone().name.unwrap(),
-                ),
-                (p.signatures.unwrap(), p.max_signatures.unwrap()),
-            )
-        })
-        .unzip();
-
-    return HttpResponse::Ok().json((usernames, signatures, max_signatures));
-
-    match get_freshmen_sdm(&packets, &state.db).await {
-        Ok(is) => {
-            intros = is;
-        }
-        Err(e) => return e,
-    };
-
-    // todo!();
-
-    HttpResponse::Ok().json(intros)
-    // HttpResponse::Ok().json(packets)
-    // HttpResponse::NotImplemented().into()
+    HttpResponse::ImATeapot()
 }
 
 #[utoipa::path(
