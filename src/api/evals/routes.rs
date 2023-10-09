@@ -1,4 +1,3 @@
-#![allow(unused_imports)]
 use crate::api::log_query_as;
 use crate::app::AppState;
 use crate::ldap::{get_active_upperclassmen, get_intro_members, get_user};
@@ -9,8 +8,7 @@ use actix_web::{
     HttpResponse, Responder,
 };
 use log::{log, Level};
-use sqlx::{query, query_as, Pool, Postgres, Transaction};
-use utoipa::openapi::security::Http;
+use sqlx::{query_as, Pool, Postgres};
 
 fn split_packet(packets: &Vec<Packet>) -> (Vec<String>, Vec<String>, Vec<i64>, Vec<i64>) {
     let ((usernames, names), (signatures, max_signatures)): (
@@ -281,18 +279,15 @@ pub async fn get_intro_evals(state: Data<AppState>) -> impl Responder {
 #[get("/member")]
 pub async fn get_member_evals(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "Get /evals/member");
-    let member_status: Vec<MemberStatus>;
     let (uids, names): (Vec<String>, Vec<String>) = get_active_upperclassmen(&state.ldap)
         .await
         .iter()
         .map(|x| (x.uid.clone(), x.cn.clone()))
         .unzip();
-    // return HttpResponse::Ok().json((uids, names));
     match get_member_sdm(&uids, &names, &state.year_start, &state.db).await {
         Ok(ms) => HttpResponse::Ok().json(ms),
         Err(e) => return e,
     }
-    // HttpResponse::NotImplemented()
 }
 
 #[utoipa::path(
