@@ -8,13 +8,10 @@ use crate::{
 };
 use actix_web::web::{self, scope, Data};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+use futures::lock::Mutex;
 use openssl::pkey::{PKey, Public};
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
-use std::{
-    collections::HashMap,
-    env,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, env, sync::Arc};
 use utoipa::{
     openapi::security::{ApiKey, ApiKeyValue, SecurityScheme},
     Modify, OpenApi,
@@ -106,5 +103,6 @@ pub async fn get_app_data() -> Data<AppState> {
             NaiveTime::from_hms_opt(0, 0, 0).unwrap(),
         ),
         ldap,
+        jwt_cache: Arc::new(Mutex::new(HashMap::new())),
     })
 }

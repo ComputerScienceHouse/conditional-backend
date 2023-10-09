@@ -1,6 +1,6 @@
 use crate::api::{log_query, log_query_as, open_transaction};
 use crate::app::AppState;
-use crate::auth::{CSHAuth, User};
+use crate::auth::CSHAuth;
 use crate::schema::api::{MeetingAttendance, Seminar, ID};
 use actix_web::{
     delete, get, post, put,

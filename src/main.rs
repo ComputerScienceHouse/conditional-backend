@@ -1,11 +1,7 @@
 use actix_cors::Cors;
 use actix_web::{App, HttpServer};
-use conditional_backend::{
-    app::{configure_app, get_app_data},
-    ldap::*,
-};
+use conditional_backend::app::{configure_app, get_app_data};
 use dotenv::dotenv;
-use log::{log, Level};
 use std::env;
 
 #[actix_web::main]

@@ -114,6 +114,7 @@ where
         self.service.poll_ready(ctx)
     }
 
+    #[allow(unused_must_use)]
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let app_data: &Data<AppState> = req.app_data().unwrap();
         if self.enabled {
@@ -142,7 +143,7 @@ where
 
             let data_cache = &app_data.clone().into_inner().jwt_cache;
             let cache = block_on(data_cache.lock());
-            let mut pkey = match cache.get(token_header.kid.as_str()) {
+            let pkey = match cache.get(token_header.kid.as_str()) {
                 Some(x) => Some(x),
                 None => {
                     let data_cache = &app_data.clone().into_inner().jwt_cache;
