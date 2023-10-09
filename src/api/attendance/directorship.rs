@@ -1,5 +1,6 @@
 use crate::api::{log_query, log_query_as, open_transaction};
 use crate::app::AppState;
+use crate::auth::CSHAuth;
 use crate::schema::api::*;
 use crate::schema::db::CommitteeType;
 
@@ -113,7 +114,7 @@ async fn create_directorship_attendance<'a>(
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[post("/directorship")]
+#[post("/directorship", wrap = "CSHAuth::enabled()")]
 pub async fn submit_directorship_attendance(
     state: Data<AppState>,
     body: Json<DirectorshipAttendance>,
@@ -166,7 +167,7 @@ pub async fn submit_directorship_attendance(
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[get("/directorship/{user}")]
+#[get("/directorship/{user}", wrap = "CSHAuth::enabled()")]
 pub async fn get_directorships_by_user(
     path: Path<(String,)>,
     state: Data<AppState>,
@@ -245,7 +246,7 @@ pub async fn get_directorships_by_user(
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[get("/directorship")]
+#[get("/directorship", wrap = "CSHAuth::enabled()")]
 pub async fn get_directorships(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "GET /attendance/directorship");
     match query_as!(
@@ -290,7 +291,7 @@ pub async fn get_directorships(state: Data<AppState>) -> impl Responder {
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[delete("/directorship/{id}")]
+#[delete("/directorship/{id}", wrap = "CSHAuth::eboard_only()")]
 pub async fn delete_directorship(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
     let (id,) = path.into_inner();
     log!(Level::Info, "DELETE /attendance/directorship/{}", id);
@@ -343,7 +344,7 @@ pub async fn delete_directorship(path: Path<(String,)>, state: Data<AppState>) -
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[put("/directorship/{id}")]
+#[put("/directorship/{id}", wrap = "CSHAuth::eboard_only()")]
 pub async fn edit_directorship_attendance(
     path: Path<(String,)>,
     state: Data<AppState>,

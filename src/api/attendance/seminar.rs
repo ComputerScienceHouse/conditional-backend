@@ -1,5 +1,6 @@
 use crate::api::{log_query, log_query_as, open_transaction};
 use crate::app::AppState;
+use crate::auth::CSHAuth;
 use crate::schema::api::{MeetingAttendance, Seminar, ID};
 use actix_web::{
     delete, get, post, put,
@@ -16,7 +17,7 @@ use sqlx::{query, query_as};
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[post("/seminar")]
+#[post("/seminar", wrap = "CSHAuth::enabled()")]
 pub async fn submit_seminar_attendance(
     state: Data<AppState>,
     body: Json<MeetingAttendance>,
@@ -120,7 +121,7 @@ pub async fn submit_seminar_attendance(
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[get("/seminar/{user}")]
+#[get("/seminar/{user}", wrap = "CSHAuth::enabled()")]
 pub async fn get_seminars_by_user(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
     let (user,) = path.into_inner();
     log!(Level::Info, "GET /attendance/seminar/{}", user);
@@ -195,7 +196,7 @@ pub async fn get_seminars_by_user(path: Path<(String,)>, state: Data<AppState>) 
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[get("/seminar")]
+#[get("/seminar", wrap = "CSHAuth::enabled()")]
 pub async fn get_seminars(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "GET /attendance/seminar");
     match query_as!(
@@ -232,7 +233,7 @@ pub async fn get_seminars(state: Data<AppState>) -> impl Responder {
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[delete("/seminar/{id}")]
+#[delete("/seminar/{id}", wrap = "CSHAuth::eboard_only()")]
 pub async fn delete_seminar(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
     let (id,) = path.into_inner();
     log!(Level::Info, "DELETE /attedance/seminar/{id}");
@@ -314,7 +315,7 @@ pub async fn delete_seminar(path: Path<(String,)>, state: Data<AppState>) -> imp
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[put("/seminar/{id}")]
+#[put("/seminar/{id}", wrap = "CSHAuth::eboard_only()")]
 pub async fn edit_seminar_attendance(
     path: Path<(String,)>,
     state: Data<AppState>,
