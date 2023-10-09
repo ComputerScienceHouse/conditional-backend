@@ -1,9 +1,13 @@
 #![allow(unused_imports)]
 use crate::api::log_query_as;
 use crate::app::AppState;
-use crate::ldap::{get_active_upperclassmen, get_intro_members};
+use crate::ldap::{get_active_upperclassmen, get_intro_members, get_user};
 use crate::schema::api::{IntroStatus, MemberStatus, Packet};
-use actix_web::{get, web::Data, HttpResponse, Responder};
+use actix_web::{
+    get,
+    web::{Data, Path},
+    HttpResponse, Responder,
+};
 use log::{log, Level};
 use sqlx::{query, query_as, Pool, Postgres, Transaction};
 use utoipa::openapi::security::Http;
@@ -275,7 +279,6 @@ pub async fn get_intro_evals(state: Data<AppState>) -> impl Responder {
         )
     )]
 #[get("/member")]
-#[get("/gatekeep")]
 pub async fn get_member_evals(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "Get /evals/member");
     let member_status: Vec<MemberStatus>;
@@ -345,4 +348,32 @@ pub async fn get_conditional(state: Data<AppState>) -> impl Responder {
     HttpResponse::Ok().json(intros)
     // HttpResponse::Ok().json(packets)
     // HttpResponse::NotImplemented().into()
+}
+
+#[utoipa::path(
+    context_path="/evals",
+    responses(
+        (status = 200, description = "Get gatekeep status for a specific user"),
+        (status = 500, description = "Error created by Query"),
+        )
+    )]
+#[get("/gatekeep/{user}")]
+pub async fn get_gatekeep(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
+    let (user,) = path.into_inner();
+    log!(Level::Info, "GET /gatekeep/{}", user);
+    let (uids, names): (Vec<String>, Vec<String>) = get_user(&state.ldap, &user)
+        .await
+        .iter()
+        .map(|u| (u.uid.clone(), u.cn.clone()))
+        .unzip();
+    match get_member_sdm(&uids, &names, &state.year_start, &state.db).await {
+        Ok(ms) => {
+            if let Some(user) = ms.first() {
+                HttpResponse::Ok().json(user)
+            } else {
+                HttpResponse::NotFound().body("User not found")
+            }
+        }
+        Err(e) => e,
+    }
 }

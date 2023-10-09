@@ -66,7 +66,8 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             // Evals routes
             .service(get_intro_evals)
             .service(get_member_evals)
-            .service(get_conditional),
+            .service(get_conditional)
+            .service(get_gatekeep),
     )
     .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));
 }
