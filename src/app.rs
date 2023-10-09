@@ -1,5 +1,6 @@
 use crate::{
     api::attendance::{directorship::*, seminar::*},
+    auth::CSHAuth,
     ldap::client::LdapClient,
     schema::{
         api::{Directorship, MeetingAttendance, Seminar},
@@ -62,24 +63,23 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
     let openapi = ApiDoc::openapi();
 
     cfg.service(
-        scope("/api")
-            .service(
-                scope("/attendance")
-                    // Seminar routes
-                    .service(submit_seminar_attendance)
-                    .service(get_seminars_by_user)
-                    .service(get_seminars)
-                    .service(delete_seminar)
-                    .service(edit_seminar_attendance)
-                    // Directorship routes
-                    .service(submit_directorship_attendance)
-                    .service(get_directorships_by_user)
-                    .service(get_directorships)
-                    .service(delete_directorship)
-                    .service(edit_directorship_attendance),
-            )
-            .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi)),
-    );
+        scope("/api").service(
+            scope("/attendance")
+                // Seminar routes
+                .service(submit_seminar_attendance)
+                .service(get_seminars_by_user)
+                .service(get_seminars)
+                .service(delete_seminar)
+                .service(edit_seminar_attendance)
+                // Directorship routes
+                .service(submit_directorship_attendance)
+                .service(get_directorships_by_user)
+                .service(get_directorships)
+                .service(delete_directorship)
+                .service(edit_directorship_attendance),
+        ),
+    )
+    .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));
 }
 
 pub async fn get_app_data() -> Data<AppState> {
