@@ -1,4 +1,5 @@
 use crate::api::attendance::{directorship::*, house::*, seminar::*};
+use crate::api::batch::batch::*;
 use crate::schema::{
     api::{Directorship, MeetingAttendance, Seminar},
     db::CommitteeType,
@@ -58,6 +59,14 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             .service(get_hm_absences_by_user)
             .service(get_hm_attendance_by_user_evals)
             .service(modify_hm_attendance),
+    )
+    .service(
+        scope("/evals")
+            .service(create_batch)
+            .service(pull_user)
+            .service(submit_batch_pr)
+            .service(get_pull_requests)
+//            .service(get_batches)
     )
     .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));
 }

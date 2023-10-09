@@ -156,3 +156,11 @@ pub struct PullRequests {
     pub frosh: Vec<FreshmanPull>,
     pub members: Vec<MemberPull>,
 }
+
+pub struct Batch {
+    pub name: String,
+    pub creator: String,
+    pub conditions: Vec<FreshmanBatchSubmission>,
+    pub freshmen: Vec<i32>,
+    pub members: Vec<String>,
+}
