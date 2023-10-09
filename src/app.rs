@@ -1,5 +1,8 @@
 use crate::{
-    api::attendance::{directorship::*, seminar::*},
+    api::{
+      attendance::{directorship::*, seminar::*},
+      evals::routes::*;
+    },
     auth::CSHAuth,
     ldap::client::LdapClient,
     schema::{
@@ -21,6 +24,7 @@ use utoipa_swagger_ui::SwaggerUi;
 
 pub struct AppState {
     pub db: Pool<Postgres>,
+    pub packet_db: Pool<Postgres>,
     pub year_start: chrono::NaiveDateTime,
     pub ldap: LdapClient,
     pub jwt_cache: Arc<Mutex<HashMap<String, PKey<Public>>>>,
@@ -40,6 +44,8 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             get_directorships,
             edit_directorship_attendance,
             delete_directorship,
+            get_intro_evals,
+            get_member_evals,
         ),
         components(schemas(Seminar, Directorship, MeetingAttendance, CommitteeType)),
         tags(
@@ -79,14 +85,28 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                 .service(edit_directorship_attendance),
         ),
     )
+    .service(
+        scope("/evals")
+            // Evals routes
+            .service(get_intro_evals)
+            .service(get_member_evals)
+            .service(get_conditional)
+            .service(get_gatekeep),
+    )
     .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));
 }
 
 pub async fn get_app_data() -> Data<AppState> {
-    let db = PgPoolOptions::new()
+    let conditional_pool = PgPoolOptions::new()
         .connect(&env::var("DATABASE_URL").expect("DATABASE_URL Not set"))
         .await
         .expect("Could not connect to database");
+    println!("Successfully opened conditional db connection");
+    let packet_pool = PgPoolOptions::new()
+        .connect(&env::var("PACKET_DATABASE_URL").expect("PACKET_DATABASE_URL Not set"))
+        .await
+        .expect("Could not connect to database");
+    println!("Successfully opened packet db connection");
     let ldap = LdapClient::new(
         &env::var("CONDITIONAL_LDAP_BIND_DN")
             .expect("CONDITIONAL_LDAP_BIND_DN not set")
@@ -97,7 +117,8 @@ pub async fn get_app_data() -> Data<AppState> {
     )
     .await;
     Data::new(AppState {
-        db,
+        db: conditional_pool,
+        packet_db: packet_pool,
         year_start: NaiveDateTime::new(
             NaiveDate::from_ymd_opt(2023, 6, 1).unwrap(),
             NaiveTime::from_hms_opt(0, 0, 0).unwrap(),

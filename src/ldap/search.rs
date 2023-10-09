@@ -11,6 +11,7 @@ impl Default for SearchAttrs {
                 String::from("cn"),
                 String::from("dn"),
                 String::from("uid"),
+                String::from("ritDn"),
                 String::from("memberOf"),
                 String::from("krbPrincipalName"),
                 String::from("mail"),
