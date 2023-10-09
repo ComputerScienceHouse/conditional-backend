@@ -33,6 +33,7 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             get_directorships,
             edit_directorship_attendance,
             delete_directorship,
+            get_intro_evals,
             get_conditional,
         ),
         components(schemas(Seminar, Directorship, MeetingAttendance, CommitteeType)),
@@ -62,6 +63,7 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
     .service(
         scope("/evals")
             // Evals routes
+            .service(get_intro_evals)
             .service(get_conditional),
     )
     .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));

@@ -18,7 +18,9 @@ pub struct ID {
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct IntroStatus {
     /// Name of the intro member
-    pub name: String,
+    pub name: Option<String>,
+    /// Name of the intro member
+    pub uid: Option<String>,
     /// Number of seminars attended
     pub seminars: i64,
     /// Number of directorships attended
@@ -26,9 +28,9 @@ pub struct IntroStatus {
     /// Number of house meetings missed
     pub missed_hms: i64,
     /// Number of upperclassmen packet signatures recieved
-    pub signatures: i64,
+    pub signatures: Option<i64>,
     /// Number of upperclassmen packet signatures for 100%
-    pub max_signatures: i64,
+    pub max_signatures: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema, sqlx::FromRow)]
