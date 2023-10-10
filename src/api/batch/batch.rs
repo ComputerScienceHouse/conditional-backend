@@ -281,16 +281,13 @@ pub async fn get_batches(state: Data<AppState>) -> impl Responder {
     }
     // return HttpResponse::Ok().json(intros);
     let (((name, uid), fid), ((seminars, directorships), (missed_hms, packet))): (
-        ((Vec<String>, Vec<String>), Vec<i32>),
+        ((Vec<String>, Vec<Option<String>>), Vec<i32>),
         ((Vec<i64>, Vec<i64>), (Vec<i64>, Vec<i64>)),
     ) = intros
         .into_iter()
         .map(|is| {
             (
-                (
-                    (is.name, is.uid.unwrap_or("null".to_string())),
-                    is.fid.unwrap_or(0),
-                ),
+                ((is.name, is.uid), is.fid.unwrap_or(0)),
                 (
                     (is.seminars, is.directorships),
                     (is.missed_hms, 100 * is.signatures / is.max_signatures),
@@ -298,12 +295,23 @@ pub async fn get_batches(state: Data<AppState>) -> impl Responder {
             )
         })
         .unzip();
-    // return HttpResponse::Ok().json((name, uid, seminars, directorships, missed_hms, packet, fid));
+
+    use serde::{Deserialize, Serialize};
+    use utoipa::ToSchema;
+    #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+    struct Chom {
+        bid: Option<i32>,
+        mname: Option<String>,
+        uid: Option<String>,
+        fid: Option<i32>,
+        bu: Option<bool>,
+    }
     match log_query_as(
+      // I'm so sorry for anyone who needs to touch this ever
     query_as!(Batch,
               "
 SELECT batch.name AS \"name!\", batch.uid AS \"creator!\", bi.conditions AS \"conditions!\", bi.members AS \"members!\"
-FROM (SELECT cb.bid, cb.conditions, array_agg(DISTINCT concat(cb.mname, ',', COALESCE(cb.uid, ''))) AS members
+FROM (SELECT cb.bid, cb.conditions, array_agg(DISTINCT concat(cb.mname, ',', cb.uid)) AS members
 FROM (
 SELECT batches.bid
 , array_agg(concat(batches.\"condition\", ' ', batches.comparison, ' ', batches.value)) AS conditions
@@ -330,18 +338,18 @@ FROM (SELECT *
 FROM (SELECT fbu.batch_id, evals.name, fbu.fid, NULL AS uid, TRUE AS bu
 	FROM freshman_batch_users fbu
 	LEFT JOIN (
-	SELECT evals.uid, evals.name, evals.fid
+	SELECT evals._ AS uid, evals.name, evals.fid
 	FROM (SELECT *
-	FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], $7::int4[])) AS evals(\"name\", uid, ss, ds, hm, packet, fid)
+	FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], $7::int4[])) AS evals(\"name\", _, ss, ds, hm, packet, fid)
 	) evals
 	ON fbu.fid = evals.fid) AS frosh_info
 UNION (
 	SELECT mbu.batch_id, evals.name, NULL AS fid, mbu.uid, TRUE AS bu
 	FROM member_batch_users mbu 
 	LEFT JOIN (
-	SELECT evals.uid, evals.name, evals.fid
+	SELECT evals._ AS uid, evals.name, evals.fid
 	FROM (SELECT *
-	FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], $7::int4[])) AS evals(\"name\", uid, ss, ds, hm, packet, fid)
+	FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], $7::int4[])) AS evals(\"name\", _, ss, ds, hm, packet, fid)
 	) evals
 	ON mbu.uid = evals.uid)
 UNION (
@@ -358,17 +366,15 @@ LEFT JOIN (
 	) evals ON evals.uid=baid.uid OR evals.fid=baid.fid
 WHERE NOT EXISTS (SELECT 1 FROM freshman_batch_pulls fbp WHERE fbp.approved AND fbp.fid=baid.fid)
 AND NOT EXISTS (SELECT 1 FROM member_batch_pulls mbp WHERE mbp.approved AND mbp.uid=baid.uid)) AS batches
+--WHERE cond_passed
 GROUP BY batches.bid, batches.mname, batches.uid, batches.fid
 HAVING bool_and(batches.cond_passed)) AS cb
 GROUP BY cb.bid, cb.conditions) AS bi --thats gay
 LEFT JOIN batch ON bi.bid=batch.id
-", &name, &uid, &seminars, &directorships, &missed_hms, &packet, &fid).fetch_all(&state.db).await,
+", &name, &uid as _, &seminars, &directorships, &missed_hms, &packet, &fid).fetch_all(&state.db).await,
     None,
   ).await {
-      Ok((_, batches)) => {
-        // panic!("{:?}", batches);
-        HttpResponse::Ok().json(batches)
-      },
+      Ok((_, batches)) => HttpResponse::Ok().json(batches),
       Err(e) => e,
   }
 }
