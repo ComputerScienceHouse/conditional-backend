@@ -27,7 +27,7 @@ impl LdapUser {
             dn: entry.dn.clone(),
             cn: get_one(user_attrs, "cn").unwrap(),
             uid: get_one(user_attrs, "uid").unwrap(),
-            rit_username: get_one(user_attrs, "ritDn").unwrap(),
+            rit_username: get_one(user_attrs, "ritDn").unwrap_or_default(),
             groups: get_groups(get_vec(user_attrs, "memberOf")),
             krb_principal_name: get_one(user_attrs, "krbPrincipalName").unwrap(),
             mail: get_vec(user_attrs, "mail"),

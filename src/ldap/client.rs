@@ -65,7 +65,8 @@ impl managed::Manager for LdapManager {
         ldap: &mut Self::Type,
         _: &Metrics,
     ) -> managed::RecycleResult<Self::Error> {
-        todo!();
+        ldap.extended(ldap3::exop::WhoAmI).await?;
+        Ok(())
     }
 }
 
