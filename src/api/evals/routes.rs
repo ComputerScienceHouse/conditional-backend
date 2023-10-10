@@ -264,11 +264,13 @@ pub async fn get_intro_evals(state: Data<AppState>) -> impl Responder {
         Err(e) => return e,
     };
     let (intro_uids, intro_rit_usernames): (Vec<String>, Vec<String>) =
-        get_intro_members(&state.ldap)
-            .await
-            .iter()
-            .map(|x| (x.uid.clone(), x.rit_username.clone()))
-            .unzip();
+        match get_intro_members(&state.ldap).await {
+            Ok(r) => r,
+            Err(e) => return HttpResponse::InternalServerError().body(e.to_string()),
+        }
+        .iter()
+        .map(|x| (x.uid.clone(), x.rit_username.clone()))
+        .unzip();
     match get_freshmen_sdm(&packets, &state.db).await {
         Ok(intros) => {
             freshmen_status = intros;
@@ -294,8 +296,11 @@ pub async fn get_intro_evals(state: Data<AppState>) -> impl Responder {
 #[get("/member", wrap = "CSHAuth::enabled()")]
 pub async fn get_member_evals(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "Get /evals/member");
-    let (uids, names): (Vec<String>, Vec<String>) = get_active_upperclassmen(&state.ldap)
-        .await
+    let (uids, names): (Vec<String>, Vec<String>) =
+        match get_active_upperclassmen(&state.ldap).await {
+            Ok(r) => r,
+            Err(e) => return HttpResponse::InternalServerError().body(e.to_string()),
+        }
         .iter()
         .map(|x| (x.uid.clone(), x.cn.clone()))
         .unzip();
@@ -322,11 +327,13 @@ pub async fn get_conditional() -> impl Responder {
 pub async fn get_gatekeep(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
     let (user,) = path.into_inner();
     log!(Level::Info, "GET /gatekeep/{}", user);
-    let (uids, names): (Vec<String>, Vec<String>) = get_user(&state.ldap, &user)
-        .await
-        .iter()
-        .map(|u| (u.uid.clone(), u.cn.clone()))
-        .unzip();
+    let (uids, names): (Vec<String>, Vec<String>) = match get_user(&state.ldap, &user).await {
+        Ok(r) => r,
+        Err(e) => return HttpResponse::InternalServerError().body(e.to_string()),
+    }
+    .iter()
+    .map(|u| (u.uid.clone(), u.cn.clone()))
+    .unzip();
     match get_member_sdm(&uids, &names, &state.year_start, &state.db).await {
         Ok(ms) => {
             if let Some(user) = ms.first() {

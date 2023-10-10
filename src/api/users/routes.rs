@@ -18,10 +18,10 @@ use log::{log, Level};
 #[get("/voting_count", wrap = "CSHAuth::enabled()")]
 pub async fn get_voting_count(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "GET /users/voting_count");
-    HttpResponse::Ok().body(format!(
-        "{}",
-        ldap::get_active_upperclassmen(&state.ldap).await.len()
-    ))
+    match ldap::get_active_upperclassmen(&state.ldap).await {
+        Ok(v) => HttpResponse::Ok().body(format!("{}", v.len())),
+        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+    }
 }
 
 #[utoipa::path(
@@ -33,10 +33,10 @@ pub async fn get_voting_count(state: Data<AppState>) -> impl Responder {
 #[get("/active_count", wrap = "CSHAuth::enabled()")]
 pub async fn get_active_count(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "GET /users/active_count");
-    HttpResponse::Ok().body(format!(
-        "{}",
-        ldap::get_group_members(&state.ldap, "active").await.len()
-    ))
+    match ldap::get_group_members(&state.ldap, "active").await {
+        Ok(v) => HttpResponse::Ok().body(format!("{}", v.len())),
+        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+    }
 }
 
 #[utoipa::path(
@@ -49,7 +49,10 @@ pub async fn get_active_count(state: Data<AppState>) -> impl Responder {
 pub async fn search_members(state: Data<AppState>, path: Path<(String,)>) -> impl Responder {
     let query = path.into_inner().0;
     log!(Level::Info, "GET /users/search/{}", query);
-    HttpResponse::Ok().json(ldap::search_users(&state.ldap, query.as_str()).await)
+    match ldap::search_users(&state.ldap, query.as_str()).await {
+        Ok(v) => HttpResponse::Ok().json(v),
+        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+    }
 }
 
 #[utoipa::path(
@@ -61,7 +64,10 @@ pub async fn search_members(state: Data<AppState>, path: Path<(String,)>) -> imp
 #[get("/all", wrap = "CSHAuth::enabled()")]
 pub async fn all_members(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "GET /users/all");
-    HttpResponse::Ok().json(ldap::get_group_members(&state.ldap, "member").await)
+    match ldap::get_group_members(&state.ldap, "member").await {
+        Ok(v) => HttpResponse::Ok().json(v),
+        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+    }
 }
 
 #[utoipa::path(
@@ -72,8 +78,8 @@ pub async fn all_members(state: Data<AppState>) -> impl Responder {
     )]
 #[post("/", wrap = "CSHAuth::evals_only()")]
 pub async fn create_freshman_user(
-    state: Data<AppState>,
-    body: Json<NewIntroMember>,
+    _state: Data<AppState>,
+    _body: Json<NewIntroMember>,
 ) -> impl Responder {
     log!(Level::Info, "POST /users");
     HttpResponse::NotImplemented().finish()
@@ -87,8 +93,8 @@ pub async fn create_freshman_user(
     )]
 #[put("/{user}", wrap = "CSHAuth::evals_only()")]
 pub async fn convert_freshman_user(
-    state: Data<AppState>,
-    body: Json<FreshmanUpgrade>,
+    _state: Data<AppState>,
+    _body: Json<FreshmanUpgrade>,
     path: Path<(String,)>,
 ) -> impl Responder {
     let user = path.into_inner().0;
