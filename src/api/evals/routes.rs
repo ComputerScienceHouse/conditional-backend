@@ -246,7 +246,7 @@ pub async fn get_intro_member_evals(
     let (intro_uids, intro_rit_usernames): (Vec<String>, Vec<String>) =
         match get_intro_members(&state.ldap).await {
             Ok(r) => r,
-            Err(e) => return HttpResponse::InternalServerError().body(e.to_string()),
+            Err(e) => return Err(HttpResponse::InternalServerError().body(e.to_string())),
         }
         .iter()
         .map(|x| (x.uid.clone(), x.rit_username.clone()))
