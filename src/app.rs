@@ -1,7 +1,7 @@
 use crate::{
     api::{
       attendance::{directorship::*, seminar::*},
-      evals::routes::*;
+      evals::routes::*
     },
     auth::CSHAuth,
     ldap::client::LdapClient,
