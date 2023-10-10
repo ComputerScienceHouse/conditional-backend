@@ -33,9 +33,11 @@ pub struct EvalsHmAtt {
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct IntroStatus {
+    /// Freshman ID of the intro member, if they don't have an account
+    pub fid: Option<i32>,
     /// Name of the intro member
-    pub name: Option<String>,
-    /// Name of the intro member
+    pub name: String,
+    /// CSH username of the member, if they have one
     pub uid: Option<String>,
     /// Number of seminars attended
     pub seminars: i64,
@@ -187,7 +189,6 @@ pub struct BatchSubmission {
     pub freshman_users: Vec<FreshmanBatchSubmission>,
     pub member_users: Vec<MemberBatchUser>,
 }
-
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct FreshmanPull {
     pub fid: i32,
@@ -208,10 +209,15 @@ pub struct PullRequests {
     pub members: Vec<MemberPull>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct Batch {
+    /// Name of the batch
     pub name: String,
+    /// Uid of the creator
     pub creator: String,
-    pub conditions: Vec<FreshmanBatchSubmission>,
-    pub freshmen: Vec<i32>,
+    /// A vector of conditions formatted "{condition} {comparison} {value}"
+    pub conditions: Vec<String>,
+    /// A vector of two comma separated values, name and CSH username.
+    /// If the user doesn't have an account, the second value will be empty.
     pub members: Vec<String>,
 }

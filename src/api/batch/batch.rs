@@ -7,7 +7,7 @@ use log::{log, Level};
 use sqlx::{query, query_as};
 
 use crate::{
-    api::{log_query, log_query_as, open_transaction},
+    api::{evals::routes::get_intro_member_evals, log_query, log_query_as, open_transaction},
     app::AppState,
     schema::{
         api::*,
@@ -269,22 +269,106 @@ pub async fn get_pull_requests(state: Data<AppState>) -> impl Responder {
     HttpResponse::Ok().json(result)
 }
 
-#[get("/evals/batch")]
+#[get("/batch")]
 pub async fn get_batches(state: Data<AppState>) -> impl Responder {
-    log!(Level::Info, "GET /evals/batches");
-
-    //    let mut transaction = match open_transaction(&state.db).await {
-    //        Ok(t) => t,
-    //        Err(res) => return res,
-    //    };
-
-    //    // Commit transaction
-    //    match transaction.commit().await {
-    //        Ok(_) => HttpResponse::Created().finish(),
-    //        Err(e) => {
-    //            log!(Level::Error, "Transaction failed to commit");
-    //            HttpResponse::InternalServerError().body(e.to_string())
-    //        }
-    //    }
-    HttpResponse::NotImplemented()
+    log!(Level::Info, "GET /evals/batch");
+    let intros: Vec<IntroStatus>;
+    match get_intro_member_evals(&state).await {
+        Ok(is) => {
+            intros = is;
+        }
+        Err(e) => return e,
+    }
+    // return HttpResponse::Ok().json(intros);
+    let (((name, uid), fid), ((seminars, directorships), (missed_hms, packet))): (
+        ((Vec<String>, Vec<String>), Vec<i32>),
+        ((Vec<i64>, Vec<i64>), (Vec<i64>, Vec<i64>)),
+    ) = intros
+        .into_iter()
+        .map(|is| {
+            (
+                (
+                    (is.name, is.uid.unwrap_or("null".to_string())),
+                    is.fid.unwrap_or(0),
+                ),
+                (
+                    (is.seminars, is.directorships),
+                    (is.missed_hms, 100 * is.signatures / is.max_signatures),
+                ),
+            )
+        })
+        .unzip();
+    // return HttpResponse::Ok().json((name, uid, seminars, directorships, missed_hms, packet, fid));
+    match log_query_as(
+    query_as!(Batch,
+              "
+SELECT batch.name AS \"name!\", batch.uid AS \"creator!\", bi.conditions AS \"conditions!\", bi.members AS \"members!\"
+FROM (SELECT cb.bid, cb.conditions, array_agg(DISTINCT concat(cb.mname, ',', COALESCE(cb.uid, ''))) AS members
+FROM (
+SELECT batches.bid
+, array_agg(concat(batches.\"condition\", ' ', batches.comparison, ' ', batches.value)) AS conditions
+, batches.mname, batches.uid, batches.fid
+FROM (SELECT baid.bid, baid.mname, baid.fid, baid.uid, bc.\"condition\", bc.comparison, bc.value,
+CASE
+	WHEN baid.bu THEN TRUE
+	WHEN bc.\"condition\" = 'packet' AND bc.comparison = 'greater' THEN evals.packet > bc.value
+	WHEN bc.\"condition\" = 'packet' AND bc.comparison = 'equal' THEN evals.packet = bc.value
+	WHEN bc.\"condition\" = 'packet' AND bc.comparison = 'less' THEN evals.packet < bc.value
+	WHEN bc.\"condition\" = 'seminar' AND bc.comparison = 'greater' THEN evals.ss > bc.value
+	WHEN bc.\"condition\" = 'seminar' AND bc.comparison = 'equal' THEN evals.ss = bc.value
+	WHEN bc.\"condition\" = 'seminar' AND bc.comparison = 'less' THEN evals.ss < bc.value
+	WHEN bc.\"condition\" = 'committee' AND bc.comparison = 'greater' THEN evals.ds > bc.value
+	WHEN bc.\"condition\" = 'committee' AND bc.comparison = 'equal' THEN evals.ds = bc.value
+	WHEN bc.\"condition\" = 'committee' AND bc.comparison = 'less' THEN evals.ds < bc.value
+	WHEN bc.\"condition\" = 'house' AND bc.comparison = 'greater' THEN evals.hm > bc.value
+	WHEN bc.\"condition\" = 'house' AND bc.comparison = 'equal' THEN evals.hm = bc.value
+	WHEN bc.\"condition\" = 'house' AND bc.comparison = 'less' THEN evals.hm < bc.value
+	ELSE false
+END AS cond_passed
+FROM (SELECT baid.bid, baid.mname, baid.fid, baid.uid, bool_or(baid.bu) AS bu
+FROM (SELECT *
+FROM (SELECT fbu.batch_id, evals.name, fbu.fid, NULL AS uid, TRUE AS bu
+	FROM freshman_batch_users fbu
+	LEFT JOIN (
+	SELECT evals.uid, evals.name, evals.fid
+	FROM (SELECT *
+	FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], $7::int4[])) AS evals(\"name\", uid, ss, ds, hm, packet, fid)
+	) evals
+	ON fbu.fid = evals.fid) AS frosh_info
+UNION (
+	SELECT mbu.batch_id, evals.name, NULL AS fid, mbu.uid, TRUE AS bu
+	FROM member_batch_users mbu 
+	LEFT JOIN (
+	SELECT evals.uid, evals.name, evals.fid
+	FROM (SELECT *
+	FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], $7::int4[])) AS evals(\"name\", uid, ss, ds, hm, packet, fid)
+	) evals
+	ON mbu.uid = evals.uid)
+UNION (
+	SELECT batch.id, evals.name, CASE WHEN evals.fid != 0 THEN evals.fid ELSE NULL END, evals.uid, FALSE AS bu
+	FROM batch,
+		(SELECT * FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], $7::int4[])) AS evals(\"name\", uid, ss, ds, hm, packet, fid)
+)) AS baid(bid, mname, fid, uid, bu)
+GROUP BY baid.bid, baid.mname, baid.fid, baid.uid) AS baid
+LEFT JOIN batch_conditions bc ON bc.batch_id=baid.bid
+LEFT JOIN (
+	SELECT evals.uid, evals.fid, evals.ss, evals.ds, evals.hm, evals.packet
+	FROM (SELECT *
+	FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], $7::int4[])) AS evals(\"name\", uid, ss, ds, hm, packet, fid)
+	) evals ON evals.uid=baid.uid OR evals.fid=baid.fid
+WHERE NOT EXISTS (SELECT 1 FROM freshman_batch_pulls fbp WHERE fbp.approved AND fbp.fid=baid.fid)
+AND NOT EXISTS (SELECT 1 FROM member_batch_pulls mbp WHERE mbp.approved AND mbp.uid=baid.uid)) AS batches
+GROUP BY batches.bid, batches.mname, batches.uid, batches.fid
+HAVING bool_and(batches.cond_passed)) AS cb
+GROUP BY cb.bid, cb.conditions) AS bi --thats gay
+LEFT JOIN batch ON bi.bid=batch.id
+", &name, &uid, &seminars, &directorships, &missed_hms, &packet, &fid).fetch_all(&state.db).await,
+    None,
+  ).await {
+      Ok((_, batches)) => {
+        // panic!("{:?}", batches);
+        HttpResponse::Ok().json(batches)
+      },
+      Err(e) => e,
+  }
 }
