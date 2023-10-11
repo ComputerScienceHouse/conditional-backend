@@ -114,7 +114,6 @@ pub struct NewIntroMember {
 pub struct FreshmanUpgrade {
     pub fid: i32,
     pub uid: String,
-    pub signatures_missed: i32,
 }
 
 pub struct IndividualHouseAttendance {
