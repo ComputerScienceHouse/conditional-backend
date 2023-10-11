@@ -5,7 +5,7 @@ use crate::{
     },
     ldap::client::LdapClient,
     schema::{
-        api::{Directorship, MeetingAttendance, Seminar},
+        api::{Directorship, Seminar},
         db::CommitteeType,
     },
 };
@@ -46,7 +46,7 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             get_intro_evals,
             get_member_evals,
         ),
-        components(schemas(Seminar, Directorship, MeetingAttendance, CommitteeType)),
+        components(schemas(Seminar, Directorship, CommitteeType)),
         tags(
             (name = "Conditional", description = "Conditional Actix API")
             )
