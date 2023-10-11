@@ -85,14 +85,6 @@ pub struct Directorship {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct MeetingAttendance {
-    pub name: String,
-    pub date: NaiveDateTime,
-    pub members: Vec<String>,
-    pub frosh: Vec<i32>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct DirectorshipAttendance {
     pub committee: CommitteeType,
     pub timestamp: chrono::NaiveDateTime,
