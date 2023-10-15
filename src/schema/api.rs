@@ -6,13 +6,11 @@
 
 use chrono::{NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
-use sqlx::types::Json;
 use utoipa::ToSchema;
 
 use super::db::{
-    AttendanceStatus, BatchComparison, BatchCondition, BatchConditionType, CommitteeType,
-    CoopSemester, FreshmanBatchPull, FreshmanBatchUser, MajorProjectStatus, MemberBatchPull,
-    MemberBatchUser,
+    AttendanceStatus, BatchComparison, BatchConditionType, CommitteeType, CoopSemester,
+    MajorProjectStatus, MemberBatchUser,
 };
 
 pub struct ID {
