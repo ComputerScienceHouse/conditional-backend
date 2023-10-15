@@ -2,6 +2,7 @@ use crate::{
     api::{
         attendance::{directorship::*, seminar::*},
         evals::routes::*,
+        forms::routes::get_intro_form_for_user,
         users::routes::*,
     },
     ldap::{client::LdapClient, user::LdapUser},
@@ -115,7 +116,8 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                     .service(all_members)
                     .service(create_freshman_user)
                     .service(convert_freshman_user),
-            ),
+            )
+            .service(scope("/forms").service(get_intro_form_for_user)),
     )
     .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));
 }
