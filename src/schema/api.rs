@@ -1,25 +1,43 @@
-// TODO: Define API Schema that the API routes will deliver to the frontend
+// Define API Schema that the API routes will deliver to the frontend
 // These are explicitly different from the DB schema. As, for example,
 // directorship attendance may be relayed to the fronted as a list of member
 // names / usernames, while directorship attendance is stored in the database
 // as relations in one of two tables
 
-use chrono::NaiveDateTime;
+use chrono::{NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 use sqlx::types::Json;
 use utoipa::ToSchema;
 
-use super::db::{AttendanceStatus, CommitteeType, CoopSemester, MajorProjectStatus};
+use super::db::{
+    AttendanceStatus, BatchComparison, BatchCondition, BatchConditionType, CommitteeType,
+    CoopSemester, FreshmanBatchPull, FreshmanBatchUser, MajorProjectStatus, MemberBatchPull,
+    MemberBatchUser,
+};
 
 pub struct ID {
     pub id: i32,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct Date {
+    pub date: NaiveDate,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct EvalsHmAtt {
+    pub attendance_status: AttendanceStatus,
+    pub excuse: Option<String>,
+    pub date: NaiveDate,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct IntroStatus {
+    /// Freshman ID of the intro member, if they don't have an account
+    pub fid: Option<i32>,
     /// Name of the intro member
-    pub name: Option<String>,
-    /// Name of the intro member
+    pub name: String,
+    /// CSH username of the member, if they have one
     pub uid: Option<String>,
     /// Number of seminars attended
     pub seminars: i64,
@@ -93,14 +111,23 @@ pub struct DirectorshipAttendance {
     pub frosh: Vec<i32>,
 }
 
-pub struct IndividualHouseAttendance {
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct MemberHouseAttendance {
     pub name: String,
     pub att_status: AttendanceStatus,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct FroshHouseAttendance {
+    pub fid: i32,
+    pub att_status: AttendanceStatus,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct HouseAttendance {
-    pub date: NaiveDateTime,
-    pub body: Json<IndividualHouseAttendance>,
+    pub date: NaiveDate,
+    pub members: Vec<MemberHouseAttendance>,
+    pub frosh: Vec<FroshHouseAttendance>,
 }
 
 pub struct MajorProjectSubmission {
@@ -133,4 +160,56 @@ pub struct IntroFormSubmission {
     pub uid: String,
     pub social_events: String,
     pub comments: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct BatchConditionSubmission {
+    pub value: i32,
+    pub condition: BatchConditionType,
+    pub comparison: BatchComparison,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct FreshmanBatchSubmission {
+    pub fid: i32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct BatchSubmission {
+    pub name: String,
+    pub conditions: Vec<BatchConditionSubmission>,
+    pub freshman_users: Vec<FreshmanBatchSubmission>,
+    pub member_users: Vec<MemberBatchUser>,
+}
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct FreshmanPull {
+    pub fid: i32,
+    pub reason: String,
+    pub puller: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct MemberPull {
+    pub uid: String,
+    pub reason: String,
+    pub puller: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct PullRequests {
+    pub frosh: Vec<FreshmanPull>,
+    pub members: Vec<MemberPull>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct Batch {
+    /// Name of the batch
+    pub name: String,
+    /// Uid of the creator
+    pub creator: String,
+    /// A vector of conditions formatted "{condition} {comparison} {value}"
+    pub conditions: Vec<String>,
+    /// A vector of two comma separated values, name and CSH username.
+    /// If the user doesn't have an account, the second value will be empty.
+    pub members: Vec<String>,
 }

@@ -1,13 +1,10 @@
-use crate::{
-    api::{
-        attendance::{directorship::*, seminar::*},
-        evals::routes::*,
-    },
-    ldap::client::LdapClient,
-    schema::{
-        api::{Directorship, Seminar},
-        db::CommitteeType,
-    },
+use crate::api::attendance::{directorship::*, house::*, seminar::*};
+use crate::api::batch::batch::*;
+use crate::api::evals::routes::*;
+use crate::ldap::client::LdapClient;
+use crate::schema::{
+    api::{Directorship, Seminar},
+    db::CommitteeType,
 };
 use actix_web::web::{self, scope, Data};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
@@ -85,12 +82,41 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
         ),
     )
     .service(
+        scope("/api").service(
         scope("/evals")
             // Evals routes
             .service(get_intro_evals)
             .service(get_member_evals)
             .service(get_conditional)
-            .service(get_gatekeep),
+            .service(get_gatekeep)
+            .service(create_batch)
+            .service(pull_user)
+            .service(submit_batch_pr)
+            .service(get_pull_requests)
+            .service(get_batches),
+    )
+    )
+    .service(
+        scope("/api").service(
+        scope("/attendance")
+            // Seminar routes
+            .service(submit_seminar_attendance)
+            .service(get_seminars_by_user)
+            .service(get_seminars)
+            .service(delete_seminar)
+            .service(edit_seminar_attendance)
+            // Directorship routes
+            .service(submit_directorship_attendance)
+            .service(get_directorships_by_user)
+            .service(get_directorships)
+            .service(delete_directorship)
+            .service(edit_directorship_attendance)
+            // House meeting routes
+            .service(submit_hm_attendance)
+            .service(get_hm_absences_by_user)
+            .service(get_hm_attendance_by_user_evals)
+            .service(modify_hm_attendance),
+    )
     )
     .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));
 }
