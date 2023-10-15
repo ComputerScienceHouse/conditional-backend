@@ -168,10 +168,11 @@ pub struct CoopSubmission {
     pub semester: CoopSemester,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct IntroFormSubmission {
     pub uid: String,
-    pub social_events: String,
-    pub comments: String,
+    pub social_events: Option<String>,
+    pub comments: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
