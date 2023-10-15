@@ -72,7 +72,8 @@ async fn get_freshmen_sdm(
     match log_query_as(
         query_as!(
             IntroStatus,
-            "SELECT packet.name as \"name!\",
+            "SELECT status.fid,
+                    packet.name as \"name!\",
                     NULL as uid,
                     status.seminars as \"seminars!\",
                     status.directorships as \"directorships!\",
@@ -80,6 +81,7 @@ async fn get_freshmen_sdm(
                     packet.signatures as \"signatures!\",
                     packet.max_signatures as \"max_signatures!\"
                 FROM (SELECT sd.username,
+                        sd.fid,
                         sd.seminars,
                         sd.directorships,
                         count(fha.attendance_status)
@@ -146,8 +148,9 @@ async fn get_intro_member_sdm(
     match log_query_as(
         query_as!(
             IntroStatus,
-            "
-SELECT packet.name as \"name!\", status.uid as \"uid!\",
+             "SELECT null::int4 as fid,
+                    packet.name as \"name!\",
+                    status.uid as \"uid!\",
                     status.seminars as \"seminars!\",
                     status.directorships as \"directorships!\",
                     status.missed_hms as \"missed_hms!\",
@@ -255,13 +258,14 @@ GROUP BY sdm.uid, sdm.name, sdm.seminars, sdm.directorships, sdm.missed_hms",
 #[get("/intro", wrap = "CSHAuth::enabled()")]
 pub async fn get_intro_evals(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "Get /evals/intro");
+
     let packets: Vec<Packet>;
     let mut freshmen_status: Vec<IntroStatus>;
     match get_all_packets(&state.packet_db).await {
         Ok(ps) => {
             packets = ps;
         }
-        Err(e) => return e,
+        Err(e) => return Err(e),
     };
     let (intro_uids, intro_rit_usernames): (Vec<String>, Vec<String>) =
         match get_intro_members(&state.ldap).await {
@@ -275,15 +279,31 @@ pub async fn get_intro_evals(state: Data<AppState>) -> impl Responder {
         Ok(intros) => {
             freshmen_status = intros;
         }
-        Err(e) => return e,
+        Err(e) => return Err(e),
     };
     match get_intro_member_sdm(&intro_uids, &intro_rit_usernames, &packets, &state.db).await {
         Ok(mut intros) => {
             freshmen_status.append(&mut intros);
+            Ok(freshmen_status)
         }
-        Err(e) => return e,
-    };
-    HttpResponse::Ok().json(freshmen_status)
+        Err(e) => Err(e),
+    }
+}
+
+#[utoipa::path(
+    context_path="/evals",
+    responses(
+        (status = 200, description = "Get all current freshmen evals status", body = [IntroStatus]),
+        (status = 500, description = "Error created by Query"),
+        )
+    )]
+#[get("/intro")]
+pub async fn get_intro_evals(state: Data<AppState>) -> impl Responder {
+    log!(Level::Info, "Get /evals/intro");
+    match get_intro_member_evals(&state).await {
+        Ok(freshmen_status) => HttpResponse::Ok().json(freshmen_status),
+        Err(e) => e,
+    }
 }
 
 #[utoipa::path(

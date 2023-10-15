@@ -1,5 +1,6 @@
 use ::chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
+use sqlx::postgres::{PgHasArrayType, PgTypeInfo};
 use sqlx::types::chrono;
 use sqlx::FromRow;
 use utoipa::ToSchema;
@@ -76,6 +77,35 @@ pub enum SpringEvalStatus {
     Failed,
 }
 
+#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Copy)]
+#[sqlx(type_name = "batch_ctype_enum")]
+pub enum BatchConditionType {
+    Packet,
+    Seminar,
+    Committee,
+    House,
+}
+
+impl PgHasArrayType for BatchConditionType {
+    fn array_type_info() -> sqlx::postgres::PgTypeInfo {
+        PgTypeInfo::with_name("batch_ctype_enum[]")
+    }
+}
+
+#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Copy)]
+#[sqlx(type_name = "batch_comparison")]
+pub enum BatchComparison {
+    Less,
+    Equal,
+    Greater,
+}
+
+impl PgHasArrayType for BatchComparison {
+    fn array_type_info() -> sqlx::postgres::PgTypeInfo {
+        PgTypeInfo::with_name("batch_comparison[]")
+    }
+}
+
 // --------- END POSTGRES BULLSHIT. BLAME joeneil FOR THE REST OF THIS --------
 
 /// Enum used for coop semester in 'current_coops'
@@ -95,6 +125,12 @@ pub enum AttendanceStatus {
     Attended,
     Absent,
     Excused,
+}
+
+impl PgHasArrayType for AttendanceStatus {
+    fn array_type_info() -> sqlx::postgres::PgTypeInfo {
+        PgTypeInfo::with_name("attendance_enum[]")
+    }
 }
 
 /// Directorship Attendance struct, represents all directorship attendance rows
@@ -366,4 +402,52 @@ pub struct Seminar {
     pub active: Option<bool>,
     /// Whether this seminar attendance has been approved by an eboard member
     pub approved: bool,
+}
+
+pub struct Batch {
+    pub id: i32,
+    pub name: String,
+    pub uid: String,
+    pub approved: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct BatchCondition {
+    pub id: i32,
+    pub value: i32,
+    pub condition: BatchConditionType,
+    pub comparison: BatchComparison,
+    pub batch_id: i32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct FreshmanBatchPull {
+    pub id: i32,
+    pub fid: i32,
+    pub approved: bool,
+    pub reason: String,
+    pub puller: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct FreshmanBatchUser {
+    pub id: i32,
+    pub fid: i32,
+    pub batch_id: i32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct MemberBatchPull {
+    pub id: i32,
+    pub uid: String,
+    pub approved: bool,
+    pub reason: String,
+    pub puller: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct MemberBatchUser {
+    pub id: i32,
+    pub uid: String,
+    pub batch_id: i32,
 }

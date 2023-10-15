@@ -3,12 +3,14 @@ use crate::{
         attendance::{directorship::*, seminar::*},
         evals::routes::*,
         users::routes::*,
+        batch::batch::*;
     },
     ldap::{client::LdapClient, user::LdapUser},
     schema::{
         api::{Directorship, FreshmanUpgrade, IntroStatus, MemberStatus, NewIntroMember, Seminar},
         db::CommitteeType,
     },
+
 };
 use actix_web::web::{self, scope, Data};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
@@ -59,6 +61,7 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             convert_freshman_user,
         ),
         components(schemas(Seminar, Directorship, CommitteeType, LdapUser, NewIntroMember, FreshmanUpgrade, MemberStatus, IntroStatus)),
+
         tags(
             (name = "Conditional", description = "Conditional Actix API")
             ),
@@ -114,7 +117,7 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                     .service(all_members)
                     .service(create_freshman_user)
                     .service(convert_freshman_user),
-            ),
+            
     )
     .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));
 }
