@@ -8,7 +8,6 @@ use actix_web::{
     web::{Data, Path},
     HttpResponse, Responder,
 };
-use log::{log, Level};
 use sqlx::{query_as, Pool, Postgres};
 
 fn split_packet(packets: &Vec<Packet>) -> (Vec<String>, Vec<String>, Vec<i64>, Vec<i64>) {
@@ -148,7 +147,7 @@ async fn get_intro_member_sdm(
     match log_query_as(
         query_as!(
             IntroStatus,
-             "SELECT null::int4 as fid,
+            "SELECT null::int4 as fid,
                     packet.name as \"name!\",
                     status.uid as \"uid!\",
                     status.seminars as \"seminars!\",
@@ -248,17 +247,7 @@ GROUP BY sdm.uid, sdm.name, sdm.seminars, sdm.directorships, sdm.missed_hms",
     }
 }
 
-#[utoipa::path(
-    context_path="/api/evals",
-    responses(
-        (status = 200, description = "Get all current freshmen evals status", body = [IntroStatus]),
-        (status = 500, description = "Error created by Query"),
-        )
-    )]
-#[get("/intro", wrap = "CSHAuth::enabled()")]
-pub async fn get_intro_evals(state: Data<AppState>) -> impl Responder {
-    log!(Level::Info, "Get /evals/intro");
-
+pub async fn get_intro_evals(state: Data<AppState>) -> Result<Vec<IntroStatus>, HttpResponse> {
     let packets: Vec<Packet>;
     let mut freshmen_status: Vec<IntroStatus>;
     match get_all_packets(&state.packet_db).await {
@@ -270,7 +259,7 @@ pub async fn get_intro_evals(state: Data<AppState>) -> impl Responder {
     let (intro_uids, intro_rit_usernames): (Vec<String>, Vec<String>) =
         match get_intro_members(&state.ldap).await {
             Ok(r) => r,
-            Err(e) => return HttpResponse::InternalServerError().body(e.to_string()),
+            Err(e) => return Err(HttpResponse::InternalServerError().body(e.to_string())),
         }
         .iter()
         .map(|x| (x.uid.clone(), x.rit_username.clone()))
@@ -284,26 +273,25 @@ pub async fn get_intro_evals(state: Data<AppState>) -> impl Responder {
     match get_intro_member_sdm(&intro_uids, &intro_rit_usernames, &packets, &state.db).await {
         Ok(mut intros) => {
             freshmen_status.append(&mut intros);
-            Ok(freshmen_status)
+            return Ok(freshmen_status);
         }
         Err(e) => Err(e),
     }
 }
 
 #[utoipa::path(
-    context_path="/evals",
+    context_path="/api/evals",
     responses(
         (status = 200, description = "Get all current freshmen evals status", body = [IntroStatus]),
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[get("/intro")]
-pub async fn get_intro_evals(state: Data<AppState>) -> impl Responder {
-    log!(Level::Info, "Get /evals/intro");
-    match get_intro_member_evals(&state).await {
-        Ok(freshmen_status) => HttpResponse::Ok().json(freshmen_status),
+#[get("/intro", wrap = "CSHAuth::enabled()")]
+pub async fn get_intro_evals_wrapper(state: Data<AppState>) -> impl Responder {
+    return match get_intro_evals(state).await {
+        Ok(v) => HttpResponse::Ok().json(v),
         Err(e) => e,
-    }
+    };
 }
 
 #[utoipa::path(
@@ -315,7 +303,6 @@ pub async fn get_intro_evals(state: Data<AppState>) -> impl Responder {
     )]
 #[get("/member", wrap = "CSHAuth::enabled()")]
 pub async fn get_member_evals(state: Data<AppState>) -> impl Responder {
-    log!(Level::Info, "Get /evals/member");
     let (uids, names): (Vec<String>, Vec<String>) =
         match get_active_upperclassmen(&state.ldap).await {
             Ok(r) => r,
@@ -332,7 +319,6 @@ pub async fn get_member_evals(state: Data<AppState>) -> impl Responder {
 
 #[get("/conditional")]
 pub async fn get_conditional() -> impl Responder {
-    log!(Level::Info, "Get /evals/conditional");
     HttpResponse::ImATeapot()
 }
 
@@ -346,7 +332,6 @@ pub async fn get_conditional() -> impl Responder {
 #[get("/gatekeep/{user}", wrap = "CSHAuth::enabled()")]
 pub async fn get_gatekeep(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
     let (user,) = path.into_inner();
-    log!(Level::Info, "GET /gatekeep/{}", user);
     let (uids, names): (Vec<String>, Vec<String>) = match get_user(&state.ldap, &user).await {
         Ok(r) => r,
         Err(e) => return HttpResponse::InternalServerError().body(e.to_string()),

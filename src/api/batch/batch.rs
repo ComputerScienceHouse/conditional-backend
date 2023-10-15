@@ -1,5 +1,5 @@
 use actix_web::{
-    delete, get, post, put,
+    get, post,
     web::{Data, Json, Path},
     HttpResponse, Responder,
 };
@@ -7,7 +7,7 @@ use log::{log, Level};
 use sqlx::{query, query_as};
 
 use crate::{
-    api::{evals::routes::get_intro_member_evals, log_query, log_query_as, open_transaction},
+    api::{evals::routes::get_intro_evals, log_query, log_query_as, open_transaction},
     app::AppState,
     schema::{
         api::*,
@@ -65,7 +65,24 @@ pub async fn create_batch(
         .map(|a| a.comparison)
         .collect::<Vec<_>>();
     let batch_ids = vec![id; values.len()];
-    match log_query(query!("INSERT INTO batch_conditions(value, condition, comparison, batch_id) SELECT value as \"value!\", condition AS \"condition!:_\", comparison AS \"comparison!:_\", batch_id as \"batch_id!\" FROM UNNEST($1::int4[], $2::batch_ctype_enum[], $3::batch_comparison[], $4::int4[]) as a(value, condition, comparison, batch_id)", values.as_slice(), conditions.as_slice() as &[BatchConditionType], comparisons.as_slice() as &[BatchComparison], batch_ids.as_slice()).execute(&state.db).await.map(|_| ()), Some(transaction)).await {
+    match log_query(
+        query!(
+            "INSERT INTO batch_conditions(value, condition, comparison, batch_id) SELECT value as \
+             \"value!\", condition AS \"condition!:_\", comparison AS \"comparison!:_\", batch_id \
+             as \"batch_id!\" FROM UNNEST($1::int4[], $2::batch_ctype_enum[], \
+             $3::batch_comparison[], $4::int4[]) as a(value, condition, comparison, batch_id)",
+            values.as_slice(),
+            conditions.as_slice() as &[BatchConditionType],
+            comparisons.as_slice() as &[BatchComparison],
+            batch_ids.as_slice()
+        )
+        .execute(&state.db)
+        .await
+        .map(|_| ()),
+        Some(transaction),
+    )
+    .await
+    {
         Ok(tx) => transaction = tx.unwrap(),
         Err(res) => return res,
     }
@@ -77,7 +94,20 @@ pub async fn create_batch(
         .map(|a| a.fid)
         .collect::<Vec<_>>();
     let batch_ids = vec![id; fids.len()];
-    match log_query(query!("INSERT INTO freshman_batch_users(fid, batch_id) SELECT fid, batch_id FROM UNNEST($1::int4[], $2::int4[]) as a(fid, batch_id)", fids.as_slice(), batch_ids.as_slice()).execute(&state.db).await.map(|_| ()), Some(transaction)).await {
+    match log_query(
+        query!(
+            "INSERT INTO freshman_batch_users(fid, batch_id) SELECT fid, batch_id FROM \
+             UNNEST($1::int4[], $2::int4[]) as a(fid, batch_id)",
+            fids.as_slice(),
+            batch_ids.as_slice()
+        )
+        .execute(&state.db)
+        .await
+        .map(|_| ()),
+        Some(transaction),
+    )
+    .await
+    {
         Ok(tx) => transaction = tx.unwrap(),
         Err(res) => return res,
     }
@@ -88,7 +118,20 @@ pub async fn create_batch(
         .map(|a| a.uid.clone())
         .collect::<Vec<_>>();
     let batch_ids = vec![id; uids.len()];
-    match log_query(query!("INSERT INTO member_batch_users(uid, batch_id) SELECT uid, batch_id FROM UNNEST($1::text[], $2::int4[]) as a(uid, batch_id)", uids.as_slice(), batch_ids.as_slice()).execute(&state.db).await.map(|_| ()), Some(transaction)).await {
+    match log_query(
+        query!(
+            "INSERT INTO member_batch_users(uid, batch_id) SELECT uid, batch_id FROM \
+             UNNEST($1::text[], $2::int4[]) as a(uid, batch_id)",
+            uids.as_slice(),
+            batch_ids.as_slice()
+        )
+        .execute(&state.db)
+        .await
+        .map(|_| ()),
+        Some(transaction),
+    )
+    .await
+    {
         Ok(tx) => transaction = tx.unwrap(),
         Err(res) => return res,
     }
@@ -209,12 +252,40 @@ pub async fn submit_batch_pr(
                 return HttpResponse::BadRequest().body("Invalid id");
             }
         };
-        match log_query(query!("INSERT INTO freshman_batch_pulls(fid, approved, puller, reason) VALUES ($1, false, $2, $3) ON CONFLICT DO NOTHING", user, puller, reason).execute(&state.db).await.map(|_| ()), Some(transaction)).await {
+        match log_query(
+            query!(
+                "INSERT INTO freshman_batch_pulls(fid, approved, puller, reason) VALUES ($1, \
+                 false, $2, $3) ON CONFLICT DO NOTHING",
+                user,
+                puller,
+                reason
+            )
+            .execute(&state.db)
+            .await
+            .map(|_| ()),
+            Some(transaction),
+        )
+        .await
+        {
             Ok(tx) => transaction = tx.unwrap(),
             Err(res) => return res,
         }
     } else {
-        match log_query(query!("INSERT INTO member_batch_pulls(uid, approved, puller, reason) VALUES ($1, false, $2, $3) ON CONFLICT DO NOTHING", user, puller, reason).execute(&state.db).await.map(|_| ()), Some(transaction)).await {
+        match log_query(
+            query!(
+                "INSERT INTO member_batch_pulls(uid, approved, puller, reason) VALUES ($1, false, \
+                 $2, $3) ON CONFLICT DO NOTHING",
+                user,
+                puller,
+                reason
+            )
+            .execute(&state.db)
+            .await
+            .map(|_| ()),
+            Some(transaction),
+        )
+        .await
+        {
             Ok(tx) => transaction = tx.unwrap(),
             Err(res) => return res,
         }
@@ -273,7 +344,8 @@ pub async fn get_pull_requests(state: Data<AppState>) -> impl Responder {
 pub async fn get_batches(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "GET /evals/batch");
     let intros: Vec<IntroStatus>;
-    match get_intro_member_evals(&state).await {
+    // state.clone is almost a NOP because it is a wrapper for Arc
+    match get_intro_evals(state.clone()).await {
         Ok(is) => {
             intros = is;
         }
@@ -307,14 +379,17 @@ pub async fn get_batches(state: Data<AppState>) -> impl Responder {
         bu: Option<bool>,
     }
     match log_query_as(
-      // I'm so sorry for anyone who needs to touch this ever
-    query_as!(Batch,
-              "
-SELECT batch.name AS \"name!\", batch.uid AS \"creator!\", bi.conditions AS \"conditions!\", bi.members AS \"members!\"
+        // I'm so sorry for anyone who needs to touch this ever
+        query_as!(
+            Batch,
+            "
+SELECT batch.name AS \"name!\", batch.uid AS \"creator!\", bi.conditions AS \"conditions!\", \
+             bi.members AS \"members!\"
 FROM (SELECT cb.bid, cb.conditions, array_agg(DISTINCT concat(cb.mname, ',', cb.uid)) AS members
 FROM (
 SELECT batches.bid
-, array_agg(concat(batches.\"condition\", ' ', batches.comparison, ' ', batches.value)) AS conditions
+, array_agg(concat(batches.\"condition\", ' ', batches.comparison, ' ', batches.value)) AS \
+             conditions
 , batches.mname, batches.uid, batches.fid
 FROM (SELECT baid.bid, baid.mname, baid.fid, baid.uid, bc.\"condition\", bc.comparison, bc.value,
 CASE
@@ -340,7 +415,8 @@ FROM (SELECT fbu.batch_id, evals.name, fbu.fid, NULL AS uid, TRUE AS bu
 	LEFT JOIN (
 	SELECT evals._ AS uid, evals.name, evals.fid
 	FROM (SELECT *
-	FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], $7::int4[])) AS evals(\"name\", _, ss, ds, hm, packet, fid)
+	FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], \
+             $7::int4[])) AS evals(\"name\", _, ss, ds, hm, packet, fid)
 	) evals
 	ON fbu.fid = evals.fid) AS frosh_info
 UNION (
@@ -349,32 +425,49 @@ UNION (
 	LEFT JOIN (
 	SELECT evals._ AS uid, evals.name, evals.fid
 	FROM (SELECT *
-	FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], $7::int4[])) AS evals(\"name\", _, ss, ds, hm, packet, fid)
+	FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], \
+             $7::int4[])) AS evals(\"name\", _, ss, ds, hm, packet, fid)
 	) evals
 	ON mbu.uid = evals.uid)
 UNION (
-	SELECT batch.id, evals.name, CASE WHEN evals.fid != 0 THEN evals.fid ELSE NULL END, evals.uid, FALSE AS bu
+	SELECT batch.id, evals.name, CASE WHEN evals.fid != 0 THEN evals.fid ELSE NULL END, evals.uid, \
+             FALSE AS bu
 	FROM batch,
-		(SELECT * FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], $7::int4[])) AS evals(\"name\", uid, ss, ds, hm, packet, fid)
+		(SELECT * FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], \
+             $6::int8[], $7::int4[])) AS evals(\"name\", uid, ss, ds, hm, packet, fid)
 )) AS baid(bid, mname, fid, uid, bu)
 GROUP BY baid.bid, baid.mname, baid.fid, baid.uid) AS baid
 LEFT JOIN batch_conditions bc ON bc.batch_id=baid.bid
 LEFT JOIN (
 	SELECT evals.uid, evals.fid, evals.ss, evals.ds, evals.hm, evals.packet
 	FROM (SELECT *
-	FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], $7::int4[])) AS evals(\"name\", uid, ss, ds, hm, packet, fid)
+	FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], \
+             $7::int4[])) AS evals(\"name\", uid, ss, ds, hm, packet, fid)
 	) evals ON evals.uid=baid.uid OR evals.fid=baid.fid
 WHERE NOT EXISTS (SELECT 1 FROM freshman_batch_pulls fbp WHERE fbp.approved AND fbp.fid=baid.fid)
-AND NOT EXISTS (SELECT 1 FROM member_batch_pulls mbp WHERE mbp.approved AND mbp.uid=baid.uid)) AS batches
+AND NOT EXISTS (SELECT 1 FROM member_batch_pulls mbp WHERE mbp.approved AND mbp.uid=baid.uid)) AS \
+             batches
 --WHERE cond_passed
 GROUP BY batches.bid, batches.mname, batches.uid, batches.fid
 HAVING bool_and(batches.cond_passed)) AS cb
 GROUP BY cb.bid, cb.conditions) AS bi --thats gay
 LEFT JOIN batch ON bi.bid=batch.id
-", &name, &uid as _, &seminars, &directorships, &missed_hms, &packet, &fid).fetch_all(&state.db).await,
-    None,
-  ).await {
-      Ok((_, batches)) => HttpResponse::Ok().json(batches),
-      Err(e) => e,
-  }
+",
+            &name,
+            &uid as _,
+            &seminars,
+            &directorships,
+            &missed_hms,
+            &packet,
+            &fid
+        )
+        .fetch_all(&state.db)
+        .await,
+        None,
+    )
+    .await
+    {
+        Ok((_, batches)) => HttpResponse::Ok().json(batches),
+        Err(e) => e,
+    }
 }

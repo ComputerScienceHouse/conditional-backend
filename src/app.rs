@@ -3,14 +3,12 @@ use crate::{
         attendance::{directorship::*, seminar::*},
         evals::routes::*,
         users::routes::*,
-        batch::batch::*;
     },
     ldap::{client::LdapClient, user::LdapUser},
     schema::{
         api::{Directorship, FreshmanUpgrade, IntroStatus, MemberStatus, NewIntroMember, Seminar},
         db::CommitteeType,
     },
-
 };
 use actix_web::web::{self, scope, Data};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
@@ -49,7 +47,7 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             edit_directorship_attendance,
             delete_directorship,
             // evals
-            get_intro_evals,
+            get_intro_evals_wrapper,
             get_member_evals,
             get_gatekeep,
             // user
@@ -103,13 +101,13 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             .service(
                 scope("/evals")
                     // Evals routes
-                    .service(get_intro_evals)
+                    .service(get_intro_evals_wrapper)
                     .service(get_member_evals)
                     .service(get_conditional)
                     .service(get_gatekeep),
             )
             .service(
-                scope("/user")
+                scope("/users")
                     // User routes
                     .service(get_voting_count)
                     .service(get_active_count)
@@ -117,7 +115,7 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                     .service(all_members)
                     .service(create_freshman_user)
                     .service(convert_freshman_user),
-            
+            ),
     )
     .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));
 }

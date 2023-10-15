@@ -1,7 +1,7 @@
 use crate::api::{log_query, log_query_as, open_transaction};
 use crate::auth::CSHAuth;
-use crate::ldap::{get_active_upperclassmen, get_intro_members, get_user};
-use crate::schema::api::{FreshmanUpgrade, ID, IntroStatus, MemberStatus, Packet};
+use crate::ldap;
+use crate::schema::api::{FreshmanUpgrade, ID};
 use crate::{app::AppState, schema::api::NewIntroMember};
 use actix_web::{
     get, post, put,
@@ -9,8 +9,7 @@ use actix_web::{
     HttpResponse, Responder,
 };
 use log::{log, Level};
-use sqlx::{query, query_as, Postgres, Transaction};
-use utoipa::openapi::security::Http;
+use sqlx::{query, query_as};
 
 #[utoipa::path(
     context_path="/api/users",
@@ -21,7 +20,6 @@ use utoipa::openapi::security::Http;
     )]
 #[get("/voting_count", wrap = "CSHAuth::enabled()")]
 pub async fn get_voting_count(state: Data<AppState>) -> impl Responder {
-    log!(Level::Info, "GET /users/voting_count");
     match ldap::get_active_upperclassmen(&state.ldap).await {
         Ok(v) => HttpResponse::Ok().body(format!("{}", v.len())),
         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
@@ -36,7 +34,6 @@ pub async fn get_voting_count(state: Data<AppState>) -> impl Responder {
     )]
 #[get("/active_count", wrap = "CSHAuth::enabled()")]
 pub async fn get_active_count(state: Data<AppState>) -> impl Responder {
-    log!(Level::Info, "GET /users/active_count");
     match ldap::get_group_members(&state.ldap, "active").await {
         Ok(v) => HttpResponse::Ok().body(format!("{}", v.len())),
         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
@@ -52,7 +49,6 @@ pub async fn get_active_count(state: Data<AppState>) -> impl Responder {
 #[get("/search/{query}", wrap = "CSHAuth::enabled()")]
 pub async fn search_members(state: Data<AppState>, path: Path<(String,)>) -> impl Responder {
     let query = path.into_inner().0;
-    log!(Level::Info, "GET /users/search/{}", query);
     match ldap::search_users(&state.ldap, query.as_str()).await {
         Ok(v) => HttpResponse::Ok().json(v),
         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
@@ -67,7 +63,6 @@ pub async fn search_members(state: Data<AppState>, path: Path<(String,)>) -> imp
     )]
 #[get("/all", wrap = "CSHAuth::enabled()")]
 pub async fn all_members(state: Data<AppState>) -> impl Responder {
-    log!(Level::Info, "GET /users/all");
     match ldap::get_group_members(&state.ldap, "member").await {
         Ok(v) => HttpResponse::Ok().json(v),
         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
@@ -85,7 +80,6 @@ pub async fn create_freshman_user(
     state: Data<AppState>,
     body: Json<NewIntroMember>,
 ) -> impl Responder {
-    log!(Level::Info, "POST /users");
     let mut transaction = match open_transaction(&state.db).await {
         Ok(t) => t,
         Err(res) => return res,
@@ -95,19 +89,29 @@ pub async fn create_freshman_user(
     let id: i32;
 
     match log_query_as(
-    query_as!(
-      ID,
-      "INSERT INTO freshman_accounts (name, eval_date, onfloor_status, room_number, signatures_missed, rit_username)
+        query_as!(
+            ID,
+            "INSERT INTO freshman_accounts (name, eval_date, onfloor_status, room_number, \
+             signatures_missed, rit_username)
         VALUES ($1::varchar, $2::date, $3, $4::varchar, null, $5::varchar) RETURNING id",
-      body.name, body.eval_date, body.onfloor_status, body.room_number, body.rit_username).fetch_all(&state.db).await,
-    Some(transaction),
-  ).await {
-    Ok((tx, i)) => {
-      transaction = tx.unwrap();
-      id=i[0].id;
+            body.name,
+            body.eval_date,
+            body.onfloor_status,
+            body.room_number,
+            body.rit_username
+        )
+        .fetch_all(&state.db)
+        .await,
+        Some(transaction),
+    )
+    .await
+    {
+        Ok((tx, i)) => {
+            transaction = tx.unwrap();
+            id = i[0].id;
+        }
+        Err(res) => return res,
     }
-    Err(res) => return res,
-  }
     log!(Level::Debug, "Inserted freshman into db. ID={}", id);
     match transaction.commit().await {
         Ok(_) => HttpResponse::Created().finish(),
@@ -124,15 +128,11 @@ pub async fn create_freshman_user(
         (status = 200, description = "Freshman user successfully converted to member"),
         )
     )]
-#[put("/{user}", wrap = "CSHAuth::evals_only()")]
+#[put("/", wrap = "CSHAuth::evals_only()")]
 pub async fn convert_freshman_user(
     state: Data<AppState>,
     body: Json<FreshmanUpgrade>,
-
-    path: Path<(String,)>,
 ) -> impl Responder {
-    let user = path.into_inner().0;
-    log!(Level::Info, "PUT /users/{user}");
     let mut transaction = match open_transaction(&state.db).await {
         Ok(t) => t,
         Err(res) => return res,

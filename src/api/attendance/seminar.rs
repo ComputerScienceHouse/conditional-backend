@@ -22,8 +22,6 @@ pub async fn submit_seminar_attendance(
     state: Data<AppState>,
     body: Json<Seminar>,
 ) -> impl Responder {
-    log!(Level::Info, "POST /attendance/seminar");
-
     if body.frosh.is_none() {
         return HttpResponse::BadRequest().body("Missing attribute 'frosh'");
     }
@@ -137,7 +135,6 @@ pub async fn submit_seminar_attendance(
 #[get("/seminar/{user}", wrap = "CSHAuth::enabled()")]
 pub async fn get_seminars_by_user(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
     let (user,) = path.into_inner();
-    log!(Level::Info, "GET /attendance/seminar/{}", user);
     if user.chars().next().unwrap().is_numeric() {
         let user: i32 = match user.parse() {
             Ok(user) => user,
@@ -211,7 +208,6 @@ pub async fn get_seminars_by_user(path: Path<(String,)>, state: Data<AppState>) 
     )]
 #[get("/seminar", wrap = "CSHAuth::enabled()")]
 pub async fn get_seminars(state: Data<AppState>) -> impl Responder {
-    log!(Level::Info, "GET /attendance/seminar");
     log!(Level::Debug, "{}", &state.year_start);
     match query_as!(
         Seminar,
@@ -250,7 +246,6 @@ pub async fn get_seminars(state: Data<AppState>) -> impl Responder {
 #[delete("/seminar/{id}", wrap = "CSHAuth::eboard_only()")]
 pub async fn delete_seminar(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
     let (id,) = path.into_inner();
-    log!(Level::Info, "DELETE /attedance/seminar/{id}");
     let id = match id.parse::<i32>() {
         Ok(id) => id,
         Err(_e) => {

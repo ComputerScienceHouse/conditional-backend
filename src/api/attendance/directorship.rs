@@ -173,8 +173,6 @@ pub async fn get_directorships_by_user(
     state: Data<AppState>,
 ) -> impl Responder {
     let (user,) = path.into_inner();
-    log!(Level::Info, "GET /attendance/directorship/{}", user);
-
     if user.chars().next().unwrap().is_numeric() {
         let user: i32 = match user.parse() {
             Ok(user) => user,
@@ -248,7 +246,6 @@ pub async fn get_directorships_by_user(
     )]
 #[get("/directorship", wrap = "CSHAuth::enabled()")]
 pub async fn get_directorships(state: Data<AppState>) -> impl Responder {
-    log!(Level::Info, "GET /attendance/directorship");
     match query_as!(
         Directorship,
         "SELECT member_seminars.committee AS \"committee: _\",
@@ -294,7 +291,6 @@ pub async fn get_directorships(state: Data<AppState>) -> impl Responder {
 #[delete("/directorship/{id}", wrap = "CSHAuth::eboard_only()")]
 pub async fn delete_directorship(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
     let (id,) = path.into_inner();
-    log!(Level::Info, "DELETE /attendance/directorship/{}", id);
     let id = match id.parse::<i32>() {
         Ok(id) => id,
         Err(_e) => {
@@ -358,7 +354,6 @@ pub async fn edit_directorship_attendance(
             return HttpResponse::BadRequest().body("Invalid id");
         }
     };
-    log!(Level::Info, "PUT /attendance/seminar/{id}");
     let mut transaction = match open_transaction(&state.db).await {
         Ok(t) => t,
         Err(res) => return res,
