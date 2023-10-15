@@ -2,11 +2,12 @@ use crate::app::AppState;
 use actix_web::{
     dev::{Service, ServiceRequest, ServiceResponse, Transform},
     web::Data,
-    HttpMessage, HttpResponse,
+    FromRequest, HttpMessage, HttpResponse,
 };
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose, Engine as _};
 use futures::{executor::block_on, future::LocalBoxFuture, lock::Mutex};
+use lazy_static::lazy_static;
 use openssl::{
     bn::BigNum,
     hash::MessageDigest,
@@ -22,6 +23,11 @@ use std::{
     sync::Arc,
     task::{Context, Poll},
 };
+
+lazy_static! {
+    static ref JWT_CACHE: Arc<Mutex<HashMap<String, PKey<Public>>>> =
+        Arc::new(Mutex::new(HashMap::new()));
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct TokenHeader {
@@ -52,6 +58,44 @@ pub struct User {
     pub given_name: String,
     pub family_name: String,
     pub email: String,
+}
+
+impl FromRequest for User {
+    type Error = actix_web::error::Error;
+    type Future = LocalBoxFuture<'static, Result<Self, Self::Error>>;
+
+    fn from_request(
+        req: &actix_web::HttpRequest,
+        _payload: &mut actix_web::dev::Payload,
+    ) -> Self::Future {
+        let unauthorized = || {
+            Box::pin(async {
+                <Result<Self, Self::Error>>::Err(actix_web::error::ErrorUnauthorized(""))
+            })
+        };
+
+        let h = match req.headers().get("Authorization").map(|h| {
+            h.to_str()
+                .unwrap_or("")
+                .to_string()
+                .trim_start_matches("Bearer ")
+                .to_string()
+        }) {
+            Some(h) => h,
+            None => return unauthorized(),
+        };
+
+        let (head, head_64, user, user_64, sig) = match get_token_pieces(h) {
+            Ok(vals) => vals,
+            Err(_) => return unauthorized(),
+        };
+
+        if verify_token(&head, &head_64, &user, &user_64, &sig) {
+            Box::pin(async { Ok(user) })
+        } else {
+            unauthorized()
+        }
+    }
 }
 
 impl User {
@@ -97,6 +141,44 @@ fn get_token_pieces(token: String) -> Result<(TokenHeader, String, User, String,
     ))
 }
 
+#[allow(unused_must_use)]
+fn verify_token(
+    header: &TokenHeader,
+    header_64: &String,
+    payload: &User,
+    payload_64: &String,
+    key: &[u8],
+) -> bool {
+    if payload.exp < (chrono::Utc::now().timestamp() as u32) {
+        return false;
+    }
+    if header.alg != "RS256" {
+        return false;
+    }
+
+    let data_cache = JWT_CACHE.clone();
+    let cache = block_on(data_cache.lock());
+    let pkey = match cache.get(header.kid.as_str()) {
+        Some(x) => Some(x),
+        None => {
+            let data_cache = JWT_CACHE.clone();
+            block_on(update_cache(data_cache.clone())).unwrap();
+            cache.get(header.kid.as_str())
+        }
+    };
+
+    let pkey = match pkey {
+        Some(p) => p,
+        None => return false,
+    };
+
+    let mut verifier = Verifier::new(MessageDigest::sha256(), &pkey).unwrap();
+    verifier.update(header_64.as_bytes());
+    verifier.update(b".");
+    verifier.update(payload_64.as_bytes());
+    verifier.verify(key).unwrap_or(false)
+}
+
 impl<S> Service<ServiceRequest> for CSHAuthService<S>
 where
     S: Service<
@@ -116,7 +198,7 @@ where
 
     #[allow(unused_must_use)]
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        let app_data: &Data<AppState> = req.app_data().unwrap();
+        let _app_data: &Data<AppState> = req.app_data().unwrap();
         if self.enabled {
             let unauthorized = |req: ServiceRequest| -> Self::Future {
                 Box::pin(async { Ok(req.into_response(HttpResponse::Unauthorized().finish())) })
@@ -134,33 +216,15 @@ where
                 token_payload_base64,
                 token_signature,
             ) = get_token_pieces(token).unwrap();
-            if token_payload.exp < (chrono::Utc::now().timestamp() as u32) {
-                return unauthorized(req);
-            }
-            if token_header.alg != "RS256" {
-                return unauthorized(req);
-            }
 
-            let data_cache = &app_data.clone().into_inner().jwt_cache;
-            let cache = block_on(data_cache.lock());
-            let pkey = match cache.get(token_header.kid.as_str()) {
-                Some(x) => Some(x),
-                None => {
-                    let data_cache = &app_data.clone().into_inner().jwt_cache;
-                    block_on(update_cache(data_cache.clone())).unwrap();
-                    cache.get(token_header.kid.as_str())
-                }
-            };
+            let verified = verify_token(
+                &token_header,
+                &token_header_base64,
+                &token_payload,
+                &token_payload_base64,
+                &token_signature,
+            );
 
-            if pkey.is_none() {
-                return unauthorized(req);
-            }
-
-            let mut verifier = Verifier::new(MessageDigest::sha256(), &pkey.unwrap()).unwrap();
-            verifier.update(token_header_base64.as_bytes());
-            verifier.update(b".");
-            verifier.update(token_payload_base64.as_bytes());
-            let verified = verifier.verify(&token_signature).unwrap();
             if verified {
                 req.extensions_mut().insert(token_payload.clone());
             } else {
@@ -201,16 +265,16 @@ pub struct CSHAuth {
     evals: bool,
 }
 
-impl CSHAuth {
-    fn enable_security() -> bool {
-        env::var("SECURITY_ENABLED")
-            .map(|x| x.parse::<bool>().unwrap_or(true))
-            .unwrap_or(true)
-    }
+lazy_static! {
+    static ref SECURITY_ENABLED: bool = env::var("SECURITY_ENABLED")
+        .map(|x| x.parse::<bool>().unwrap_or(true))
+        .unwrap_or(true);
+}
 
+impl CSHAuth {
     pub fn admin_only() -> Self {
         Self {
-            enabled: CSHAuth::enable_security(),
+            enabled: *SECURITY_ENABLED,
             admin: true,
             eboard: false,
             evals: false,
@@ -219,7 +283,7 @@ impl CSHAuth {
 
     pub fn eboard_only() -> Self {
         Self {
-            enabled: CSHAuth::enable_security(),
+            enabled: *SECURITY_ENABLED,
             admin: false,
             eboard: true,
             evals: false,
@@ -228,7 +292,7 @@ impl CSHAuth {
 
     pub fn evals_only() -> Self {
         Self {
-            enabled: CSHAuth::enable_security(),
+            enabled: *SECURITY_ENABLED,
             admin: false,
             eboard: false,
             evals: true,
@@ -237,7 +301,7 @@ impl CSHAuth {
 
     pub fn enabled() -> Self {
         Self {
-            enabled: CSHAuth::enable_security(),
+            enabled: *SECURITY_ENABLED,
             admin: false,
             eboard: false,
             evals: false,

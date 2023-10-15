@@ -1,10 +1,14 @@
-use crate::api::attendance::{directorship::*, house::*, seminar::*};
-use crate::api::batch::batch::*;
-use crate::api::evals::routes::*;
-use crate::ldap::client::LdapClient;
-use crate::schema::{
-    api::{Directorship, Seminar},
-    db::CommitteeType,
+use crate::{
+    api::{
+        attendance::{directorship::*, seminar::*},
+        evals::routes::*,
+        users::routes::*,
+    },
+    ldap::{client::LdapClient, user::LdapUser},
+    schema::{
+        api::{Directorship, FreshmanUpgrade, IntroStatus, MemberStatus, NewIntroMember, Seminar},
+        db::CommitteeType,
+    },
 };
 use actix_web::web::{self, scope, Data};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
@@ -30,23 +34,36 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
     #[derive(OpenApi)]
     #[openapi(
         paths(
+            // attendance/seminar
             submit_seminar_attendance,
             get_seminars_by_user,
             get_seminars,
             delete_seminar,
             edit_seminar_attendance,
+            // attendance/directorship
             submit_directorship_attendance,
             get_directorships_by_user,
             get_directorships,
             edit_directorship_attendance,
             delete_directorship,
-            get_intro_evals,
+            // evals
+            get_intro_evals_wrapper,
             get_member_evals,
+            get_gatekeep,
+            // user
+            get_voting_count,
+            get_active_count,
+            search_members,
+            all_members,
+            create_freshman_user,
+            convert_freshman_user,
         ),
-        components(schemas(Seminar, Directorship, CommitteeType)),
+        components(schemas(Seminar, Directorship, CommitteeType, LdapUser, NewIntroMember, FreshmanUpgrade, MemberStatus, IntroStatus)),
+
         tags(
             (name = "Conditional", description = "Conditional Actix API")
-            )
+            ),
+        modifiers(&SecurityAddon)
     )]
     struct ApiDoc;
 
@@ -65,58 +82,40 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
     let openapi = ApiDoc::openapi();
 
     cfg.service(
-        scope("/api").service(
-            scope("/attendance")
-                // Seminar routes
-                .service(submit_seminar_attendance)
-                .service(get_seminars_by_user)
-                .service(get_seminars)
-                .service(delete_seminar)
-                .service(edit_seminar_attendance)
-                // Directorship routes
-                .service(submit_directorship_attendance)
-                .service(get_directorships_by_user)
-                .service(get_directorships)
-                .service(delete_directorship)
-                .service(edit_directorship_attendance),
-        ),
-    )
-    .service(
-        scope("/api").service(
-        scope("/evals")
-            // Evals routes
-            .service(get_intro_evals)
-            .service(get_member_evals)
-            .service(get_conditional)
-            .service(get_gatekeep)
-            .service(create_batch)
-            .service(pull_user)
-            .service(submit_batch_pr)
-            .service(get_pull_requests)
-            .service(get_batches),
-    )
-    )
-    .service(
-        scope("/api").service(
-        scope("/attendance")
-            // Seminar routes
-            .service(submit_seminar_attendance)
-            .service(get_seminars_by_user)
-            .service(get_seminars)
-            .service(delete_seminar)
-            .service(edit_seminar_attendance)
-            // Directorship routes
-            .service(submit_directorship_attendance)
-            .service(get_directorships_by_user)
-            .service(get_directorships)
-            .service(delete_directorship)
-            .service(edit_directorship_attendance)
-            // House meeting routes
-            .service(submit_hm_attendance)
-            .service(get_hm_absences_by_user)
-            .service(get_hm_attendance_by_user_evals)
-            .service(modify_hm_attendance),
-    )
+        scope("/api")
+            .service(
+                scope("/attendance")
+                    // Seminar routes
+                    .service(submit_seminar_attendance)
+                    .service(get_seminars_by_user)
+                    .service(get_seminars)
+                    .service(delete_seminar)
+                    .service(edit_seminar_attendance)
+                    // Directorship routes
+                    .service(submit_directorship_attendance)
+                    .service(get_directorships_by_user)
+                    .service(get_directorships)
+                    .service(delete_directorship)
+                    .service(edit_directorship_attendance),
+            )
+            .service(
+                scope("/evals")
+                    // Evals routes
+                    .service(get_intro_evals_wrapper)
+                    .service(get_member_evals)
+                    .service(get_conditional)
+                    .service(get_gatekeep),
+            )
+            .service(
+                scope("/users")
+                    // User routes
+                    .service(get_voting_count)
+                    .service(get_active_count)
+                    .service(search_members)
+                    .service(all_members)
+                    .service(create_freshman_user)
+                    .service(convert_freshman_user),
+            ),
     )
     .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));
 }

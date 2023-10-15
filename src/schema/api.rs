@@ -10,7 +10,7 @@ use utoipa::ToSchema;
 
 use super::db::{
     AttendanceStatus, BatchComparison, BatchConditionType, CommitteeType, CoopSemester,
-    MajorProjectStatus, MemberBatchUser,
+    MajorProjectStatus, MemberBatchUser, MemberHouseAttendance,
 };
 
 pub struct ID {
@@ -110,7 +110,21 @@ pub struct DirectorshipAttendance {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct MemberHouseAttendance {
+pub struct NewIntroMember {
+    pub name: String,
+    pub eval_date: chrono::NaiveDate,
+    pub onfloor_status: bool,
+    pub room_number: Option<String>,
+    pub rit_username: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct FreshmanUpgrade {
+    pub fid: i32,
+    pub uid: String,
+}
+
+pub struct IndividualHouseAttendance {
     pub name: String,
     pub att_status: AttendanceStatus,
 }

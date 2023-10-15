@@ -7,7 +7,7 @@ use log::{log, Level};
 use sqlx::{query, query_as};
 
 use crate::{
-    api::{evals::routes::get_intro_member_evals, log_query, log_query_as, open_transaction},
+    api::{evals::routes::get_intro_evals, log_query, log_query_as, open_transaction},
     app::AppState,
     schema::{
         api::*,
@@ -344,7 +344,8 @@ pub async fn get_pull_requests(state: Data<AppState>) -> impl Responder {
 pub async fn get_batches(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "GET /evals/batch");
     let intros: Vec<IntroStatus>;
-    match get_intro_member_evals(&state).await {
+    // state.clone is almost a NOP because it is a wrapper for Arc
+    match get_intro_evals(state.clone()).await {
         Ok(is) => {
             intros = is;
         }
