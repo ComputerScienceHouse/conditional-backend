@@ -276,10 +276,17 @@ pub async fn get_intro_member_evals(
 #[get("/intro")]
 pub async fn get_intro_evals(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "Get /evals/intro");
-    match get_intro_member_evals(&state).await {
-        Ok(freshmen_status) => HttpResponse::Ok().json(freshmen_status),
-        Err(e) => e,
-    }
+    match get_all_packets(&state.packet_db).await {
+        Ok(ps) => {
+            let chom = split_packet(&ps);
+            return HttpResponse::Ok().json(split_packet(&ps));
+        }
+        Err(e) => return e,
+    };
+    // match get_intro_member_evals(&state).await {
+    //     Ok(freshmen_status) => HttpResponse::Ok().json(freshmen_status),
+    //     Err(e) => e,
+    // }
 }
 
 #[utoipa::path(

@@ -211,6 +211,8 @@ pub struct PullRequests {
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct Batch {
+    /// Batch id
+    pub id: i32,
     /// Name of the batch
     pub name: String,
     /// Uid of the creator
