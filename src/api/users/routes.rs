@@ -1,17 +1,15 @@
-
 use crate::api::{log_query, log_query_as, open_transaction};
 use crate::auth::CSHAuth;
-use crate::ldap::{get_active_upperclassmen, get_intro_members, get_user};
+use crate::ldap;
 use crate::schema::api::{FreshmanUpgrade, ID};
-use crate::{app::AppState, schema::api::{NewIntroMember, IntroStatus, MemberStatus, Packet}};
+use crate::{app::AppState, schema::api::NewIntroMember};
 use actix_web::{
     get, post, put,
     web::{Data, Json, Path},
     HttpResponse, Responder,
 };
 use log::{log, Level};
-use sqlx::{query, query_as, Pool, Postgres, Transaction};
-use utoipa::openapi::security::Http;
+use sqlx::{query, query_as};
 
 #[utoipa::path(
     context_path="/api/users",
@@ -129,7 +127,6 @@ pub async fn create_freshman_user(
         (status = 200, description = "Freshman user successfully converted to member"),
         )
     )]
-
 #[put("/", wrap = "CSHAuth::evals_only()")]
 pub async fn convert_freshman_user(
     state: Data<AppState>,

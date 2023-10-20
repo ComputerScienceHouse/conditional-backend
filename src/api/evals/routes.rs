@@ -8,7 +8,6 @@ use actix_web::{
     web::{Data, Path},
     HttpResponse, Responder,
 };
-use log::{log, Level};
 use sqlx::{query_as, Pool, Postgres};
 
 fn split_packet(packets: &Vec<Packet>) -> (Vec<String>, Vec<String>, Vec<i64>, Vec<i64>) {
@@ -123,7 +122,6 @@ async fn get_freshmen_sdm(
                         AND packet.signatures IS NOT NULL
                         AND packet.max_signatures IS NOT NULL
 ",
-
             &usernames,
             &names,
             &signatures,
@@ -150,7 +148,7 @@ async fn get_intro_member_sdm(
     match log_query_as(
         query_as!(
             IntroStatus,
-          "
+            "
              SELECT null::int4 as fid,
                     packet.name as \"name!\",
                     status.uid as \"uid!\",
@@ -288,22 +286,6 @@ pub async fn get_intro_member_evals(
     }
 }
 
-
-pub async fn get_intro_evals(state: Data<AppState>) -> impl Responder {
-    log!(Level::Info, "Get /evals/intro");
-    match get_all_packets(&state.packet_db).await {
-        Ok(ps) => {
-            let chom = split_packet(&ps);
-            return HttpResponse::Ok().json(split_packet(&ps));
-        }
-        Err(e) => return e,
-    };
-    // match get_intro_member_evals(&state).await {
-    //     Ok(freshmen_status) => HttpResponse::Ok().json(freshmen_status),
-    //     Err(e) => e,
-    // }
-}
-
 #[utoipa::path(
     context_path="/api/evals",
     responses(
@@ -313,7 +295,7 @@ pub async fn get_intro_evals(state: Data<AppState>) -> impl Responder {
     )]
 #[get("/intro")]
 pub async fn get_intro_evals_wrapper(state: Data<AppState>) -> impl Responder {
-    return match get_intro_evals(state).await {
+    return match get_intro_member_evals(&state).await {
         Ok(v) => HttpResponse::Ok().json(v),
         Err(e) => e,
     };
@@ -326,8 +308,6 @@ pub async fn get_intro_evals_wrapper(state: Data<AppState>) -> impl Responder {
         (status = 500, description = "Error created by Query"),
         )
     )]
-
-
 #[get("/member", wrap = "CSHAuth::enabled()")]
 pub async fn get_member_evals(state: Data<AppState>) -> impl Responder {
     let (uids, names): (Vec<String>, Vec<String>) =

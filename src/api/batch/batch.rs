@@ -1,18 +1,19 @@
-use actix_web::{
-    delete, get, post, put,
-    web::{Data, Json, Path},
-    HttpResponse, Responder,
-};
-use log::{log, Level};
-use sqlx::{query, query_as, Postgres, Transaction};
 use crate::{
     api::{evals::routes::get_intro_member_evals, log_query, log_query_as, open_transaction},
     app::AppState,
+    auth::CSHAuth,
     schema::{
         api::*,
         db::{BatchComparison, BatchConditionType, FreshmanEvalStatus},
     },
 };
+use actix_web::{
+    get, post,
+    web::{Data, Json, Path},
+    HttpResponse, Responder,
+};
+use log::{log, Level};
+use sqlx::{query, query_as, Postgres, Transaction};
 
 async fn get_all_batches(state: &Data<AppState>) -> Result<Vec<Batch>, HttpResponse> {
     let intros: Vec<IntroStatus> = match get_intro_member_evals(state).await {
@@ -35,14 +36,17 @@ async fn get_all_batches(state: &Data<AppState>) -> Result<Vec<Batch>, HttpRespo
         })
         .unzip();
     match log_query_as(
-      // I'm so sorry for anyone who needs to touch this ever
-    query_as!(Batch,
-              "
-SELECT batch.id as \"id!\", batch.name AS \"name!\", batch.uid AS \"creator!\", bi.conditions AS \"conditions!\", bi.members AS \"members!\"
+        // I'm so sorry for anyone who needs to touch this ever
+        query_as!(
+            Batch,
+            "
+SELECT batch.id as \"id!\", batch.name AS \"name!\", batch.uid AS \"creator!\", bi.conditions AS \
+             \"conditions!\", bi.members AS \"members!\"
 FROM (SELECT cb.bid, cb.conditions, array_agg(DISTINCT concat(cb.mname, ',', cb.uid)) AS members
 FROM (
 SELECT batches.bid
-, array_agg(concat(batches.\"condition\", ' ', batches.comparison, ' ', batches.value)) AS conditions
+, array_agg(concat(batches.\"condition\", ' ', batches.comparison, ' ', batches.value)) AS \
+             conditions
 , batches.mname, batches.uid, batches.fid
 FROM (SELECT baid.bid, baid.mname, baid.fid, baid.uid, bc.\"condition\", bc.comparison, bc.value,
 CASE
@@ -68,7 +72,8 @@ FROM (SELECT fbu.batch_id, evals.name, fbu.fid, NULL AS uid, TRUE AS bu
 	LEFT JOIN (
 	SELECT evals._ AS uid, evals.name, evals.fid
 	FROM (SELECT *
-	FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], $7::int4[])) AS evals(\"name\", _, ss, ds, hm, packet, fid)
+	FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], \
+             $7::int4[])) AS evals(\"name\", _, ss, ds, hm, packet, fid)
 	) evals
 	ON fbu.fid = evals.fid) AS frosh_info
 UNION (
@@ -77,37 +82,61 @@ UNION (
 	LEFT JOIN (
 	SELECT evals._ AS uid, evals.name, evals.fid
 	FROM (SELECT *
-	FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], $7::int4[])) AS evals(\"name\", _, ss, ds, hm, packet, fid)
+	FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], \
+             $7::int4[])) AS evals(\"name\", _, ss, ds, hm, packet, fid)
 	) evals
 	ON mbu.uid = evals.uid)
 UNION (
-	SELECT batch.id, evals.name, CASE WHEN evals.fid != 0 THEN evals.fid ELSE NULL END, evals.uid, FALSE AS bu
+	SELECT batch.id, evals.name, CASE WHEN evals.fid != 0 THEN evals.fid ELSE NULL END, evals.uid, \
+             FALSE AS bu
 	FROM batch,
-		(SELECT * FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], $7::int4[])) AS evals(\"name\", uid, ss, ds, hm, packet, fid)
+		(SELECT * FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], \
+             $6::int8[], $7::int4[])) AS evals(\"name\", uid, ss, ds, hm, packet, fid)
 )) AS baid(bid, mname, fid, uid, bu)
 GROUP BY baid.bid, baid.mname, baid.fid, baid.uid) AS baid
 LEFT JOIN batch_conditions bc ON bc.batch_id=baid.bid
 LEFT JOIN (
 	SELECT evals.uid, evals.fid, evals.ss, evals.ds, evals.hm, evals.packet
 	FROM (SELECT *
-	FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], $7::int4[])) AS evals(\"name\", uid, ss, ds, hm, packet, fid)
+	FROM UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[], $5::int8[], $6::int8[], \
+             $7::int4[])) AS evals(\"name\", uid, ss, ds, hm, packet, fid)
 	) evals ON evals.uid=baid.uid OR evals.fid=baid.fid
 WHERE NOT EXISTS (SELECT 1 FROM freshman_batch_pulls fbp WHERE fbp.approved AND fbp.fid=baid.fid)
-AND NOT EXISTS (SELECT 1 FROM member_batch_pulls mbp WHERE mbp.approved AND mbp.uid=baid.uid)) AS batches
+AND NOT EXISTS (SELECT 1 FROM member_batch_pulls mbp WHERE mbp.approved AND mbp.uid=baid.uid)) AS \
+             batches
 --WHERE cond_passed
 GROUP BY batches.bid, batches.mname, batches.uid, batches.fid
 HAVING bool_and(batches.cond_passed)) AS cb
 GROUP BY cb.bid, cb.conditions) AS bi --thats gay
 LEFT JOIN batch ON bi.bid=batch.id
-", &name, &uid as _, &seminars, &directorships, &missed_hms, &packet, &fid).fetch_all(&state.db).await,
-    None,
-  ).await {
-      Ok((_, batches)) => Ok(batches),
-      Err(e) => Err(e),
-  }
+",
+            &name,
+            &uid as _,
+            &seminars,
+            &directorships,
+            &missed_hms,
+            &packet,
+            &fid
+        )
+        .fetch_all(&state.db)
+        .await,
+        None,
+    )
+    .await
+    {
+        Ok((_, batches)) => Ok(batches),
+        Err(e) => Err(e),
+    }
 }
 
-#[post("/batch/{user}")]
+#[utoipa::path(
+    context_path="/api/evals/batch",
+    responses(
+        (status = 200, description = "Create a new batch"),
+        (status = 500, description = "Error created by Query"),
+        )
+    )]
+#[post("/{user}", wrap = "CSHAuth::enabled()")]
 pub async fn create_batch(
     path: Path<(String,)>,
     state: Data<AppState>,
@@ -241,7 +270,14 @@ pub async fn create_batch(
     }
 }
 
-#[post("/evals/batch/pull/{user}")]
+#[utoipa::path(
+    context_path="/api/evals/batch",
+    responses(
+        (status = 200, description = "Pull freshman from all batches"),
+        (status = 500, description = "Error created by Query"),
+        )
+    )]
+#[post("/pull/{user}", wrap = "CSHAuth::evals_only()")]
 pub async fn pull_user(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
     let (user,) = path.into_inner();
     log!(Level::Info, "POST /evals/batch/pull/{user}");
@@ -325,7 +361,14 @@ pub async fn pull_user(path: Path<(String,)>, state: Data<AppState>) -> impl Res
     }
 }
 
-#[post("/batch/pr/{puller}/{user}")]
+#[utoipa::path(
+    context_path="/api/evals/batch",
+    responses(
+        (status = 200, description = "Submit a request to pull a freshman from a batch"),
+        (status = 500, description = "Error created by Query"),
+        )
+    )]
+#[post("/pr/{puller}/{user}", wrap = "CSHAuth::enabled()")]
 pub async fn submit_batch_pr(
     path: Path<(String, String)>,
     state: Data<AppState>,
@@ -367,7 +410,6 @@ pub async fn submit_batch_pr(
             Err(res) => return res,
         }
     } else {
-
         match log_query(
             query!(
                 "INSERT INTO member_batch_pulls(uid, approved, puller, reason) VALUES ($1, false, \
@@ -398,7 +440,14 @@ pub async fn submit_batch_pr(
     }
 }
 
-#[get("/batch/pr")]
+#[utoipa::path(
+    context_path="/api/evals/batch",
+    responses(
+        (status = 200, description = "Get pull requests"),
+        (status = 500, description = "Error created by Query"),
+        )
+    )]
+#[get("/pr", wrap = "CSHAuth::evals_only()")]
 pub async fn get_pull_requests(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "GET /evals/batch/pr");
     let mut result = PullRequests {
@@ -440,7 +489,7 @@ pub async fn get_pull_requests(state: Data<AppState>) -> impl Responder {
 async fn execute_batch_action<'a>(
     batch_id: i32,
     state: &Data<AppState>,
-    mut transaction: Transaction<'a, Postgres>,
+    transaction: Transaction<'a, Postgres>,
     action: FreshmanEvalStatus,
 ) -> Result<Transaction<'a, Postgres>, HttpResponse> {
     let users = match get_all_batches(state).await {
@@ -482,7 +531,7 @@ async fn execute_batch_action<'a>(
 }
 
 #[utoipa::path(
-    context_path="/evals",
+    context_path="/api/evals/batch",
     responses(
         (status = 200, description = "Pass every user in the batch"),
         (status = 400, description = "Invalid batch ID"),
@@ -490,7 +539,7 @@ async fn execute_batch_action<'a>(
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[get("/batch/pass/{batch_id}")] //, wrap = "CSHAuth::evals_only()")]
+#[get("/pass/{batch_id}", wrap = "CSHAuth::evals_only()")]
 pub async fn pass_batch(state: Data<AppState>, path: Path<(String,)>) -> impl Responder {
     let batch_id = path.into_inner().0;
     log!(Level::Info, "GET /evals/batch/pass/{batch_id}");
@@ -524,7 +573,7 @@ pub async fn pass_batch(state: Data<AppState>, path: Path<(String,)>) -> impl Re
 }
 
 #[utoipa::path(
-    context_path="/evals",
+    context_path="/api/evals/batch",
     responses(
         (status = 200, description = "Fail every user in the batch"),
         (status = 400, description = "Invalid batch ID"),
@@ -532,7 +581,7 @@ pub async fn pass_batch(state: Data<AppState>, path: Path<(String,)>) -> impl Re
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[get("/batch/fail/{batch_id}")] //, wrap = "CSHAuth::evals_only()")]
+#[get("/fail/{batch_id}", wrap = "CSHAuth::evals_only()")]
 pub async fn fail_batch(state: Data<AppState>, path: Path<(String,)>) -> impl Responder {
     let batch_id = path.into_inner().0;
     log!(Level::Info, "GET /evals/batch/fail/{batch_id}");
@@ -565,12 +614,19 @@ pub async fn fail_batch(state: Data<AppState>, path: Path<(String,)>) -> impl Re
     }
 }
 
-#[get("/batch")]
+#[utoipa::path(
+    context_path="/api/evals/batch",
+    responses(
+        (status = 200, description = "Get all batches"),
+        (status = 500, description = "Get no bitches"),
+        )
+    )]
+#[get("/", wrap = "CSHAuth::enabled()")]
 pub async fn get_batches(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "GET /evals/batch");
     let intros: Vec<IntroStatus>;
     // state.clone is almost a NOP because it is a wrapper for Arc
-    match get_intro_evals(state.clone()).await {
+    match get_intro_member_evals(&state).await {
         Ok(is) => {
             intros = is;
         }
@@ -608,8 +664,8 @@ pub async fn get_batches(state: Data<AppState>) -> impl Responder {
         query_as!(
             Batch,
             "
-SELECT batch.name AS \"name!\", batch.uid AS \"creator!\", bi.conditions AS \"conditions!\", \
-             bi.members AS \"members!\"
+SELECT batch.id AS \"id!\", batch.name AS \"name!\", batch.uid AS \"creator!\", bi.conditions AS \
+             \"conditions!\", bi.members AS \"members!\"
 FROM (SELECT cb.bid, cb.conditions, array_agg(DISTINCT concat(cb.mname, ',', cb.uid)) AS members
 FROM (
 SELECT batches.bid

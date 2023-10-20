@@ -9,9 +9,8 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use super::db::{
-    AttendanceStatus, BatchComparison, BatchConditionType, BatchConditionType, CommitteeType,
-    CoopSemester, FreshmanBatchPull, FreshmanBatchUser, MajorProjectStatus, MemberBatchPull,
-    MemberBatchUser,
+    AttendanceStatus, BatchComparison, BatchConditionType, CommitteeType, CoopSemester,
+    MajorProjectStatus, MemberBatchUser,
 };
 
 pub struct ID {
@@ -126,8 +125,9 @@ pub struct FreshmanUpgrade {
     pub uid: String,
 }
 
-pub struct IndividualHouseAttendance {
-    pub name: String,
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct MemberHouseAttendance {
+    pub uid: String,
     pub att_status: AttendanceStatus,
 }
 
@@ -218,59 +218,6 @@ pub struct PullRequests {
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct Batch {
-    /// Name of the batch
-    pub name: String,
-    /// Uid of the creator
-    pub creator: String,
-    /// A vector of conditions formatted "{condition} {comparison} {value}"
-    pub conditions: Vec<String>,
-    /// A vector of two comma separated values, name and CSH username.
-    /// If the user doesn't have an account, the second value will be empty.
-    pub members: Vec<String>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct BatchConditionSubmission {
-    pub value: i32,
-    pub condition: BatchConditionType,
-    pub comparison: BatchComparison,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct FreshmanBatchSubmission {
-    pub fid: i32,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct BatchSubmission {
-    pub name: String,
-    pub conditions: Vec<BatchConditionSubmission>,
-    pub freshman_users: Vec<FreshmanBatchSubmission>,
-    pub member_users: Vec<MemberBatchUser>,
-}
-#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct FreshmanPull {
-    pub fid: i32,
-    pub reason: String,
-    pub puller: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct MemberPull {
-    pub uid: String,
-    pub reason: String,
-    pub puller: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct PullRequests {
-    pub frosh: Vec<FreshmanPull>,
-    pub members: Vec<MemberPull>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct Batch {
-    /// Batch id
     pub id: i32,
     /// Name of the batch
     pub name: String,
