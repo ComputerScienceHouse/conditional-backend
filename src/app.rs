@@ -1,16 +1,27 @@
-use crate::api::attendance::{directorship::*, house::*, seminar::*};
-use crate::api::batch::batch::*;
-use crate::api::evals::routes::*;
-use crate::ldap::client::LdapClient;
-use crate::schema::{
-    api::{Directorship, MeetingAttendance, Seminar},
-    db::CommitteeType,
+use crate::{
+    api::{
+        attendance::{directorship::*, seminar::*, house::*},
+        evals::routes::*,
+        forms::routes::get_intro_form_for_user,
+        users::routes::*,
+        batch::batch::*,
+    },
+    ldap::{client::LdapClient, user::LdapUser},
+    schema::{
+        api::{Directorship, FreshmanUpgrade, IntroStatus, MemberStatus, NewIntroMember, Seminar},
+        db::CommitteeType,
+    },
 };
 use actix_web::web::{self, scope, Data};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+use futures::lock::Mutex;
+use openssl::pkey::{PKey, Public};
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
-use std::env;
-use utoipa::OpenApi;
+use std::{collections::HashMap, env, sync::Arc};
+use utoipa::{
+    openapi::security::{ApiKey, ApiKeyValue, SecurityScheme},
+    Modify, OpenApi,
+};
 use utoipa_swagger_ui::SwaggerUi;
 
 pub struct AppState {
@@ -18,66 +29,101 @@ pub struct AppState {
     pub packet_db: Pool<Postgres>,
     pub year_start: chrono::NaiveDateTime,
     pub ldap: LdapClient,
+    pub jwt_cache: Arc<Mutex<HashMap<String, PKey<Public>>>>,
 }
 
 pub fn configure_app(cfg: &mut web::ServiceConfig) {
     #[derive(OpenApi)]
     #[openapi(
         paths(
+            // attendance/seminar
             submit_seminar_attendance,
             get_seminars_by_user,
             get_seminars,
             delete_seminar,
             edit_seminar_attendance,
+            // attendance/directorship
             submit_directorship_attendance,
             get_directorships_by_user,
             get_directorships,
             edit_directorship_attendance,
             delete_directorship,
-            get_intro_evals,
+            // evals
+            get_intro_evals_wrapper,
             get_member_evals,
+            get_gatekeep,
+            // user
+            get_voting_count,
+            get_active_count,
+            search_members,
+            all_members,
+            create_freshman_user,
+            convert_freshman_user,
         ),
-        components(schemas(Seminar, Directorship, MeetingAttendance, CommitteeType)),
+        components(schemas(Seminar, Directorship, CommitteeType, LdapUser, NewIntroMember, FreshmanUpgrade, MemberStatus, IntroStatus)),
+
         tags(
             (name = "Conditional", description = "Conditional Actix API")
-            )
+            ),
+        modifiers(&SecurityAddon)
     )]
     struct ApiDoc;
+
+    struct SecurityAddon;
+
+    impl Modify for SecurityAddon {
+        fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+            let components = openapi.components.as_mut().unwrap();
+            components.add_security_scheme(
+                "api_key",
+                SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::new("frontend_api_key"))),
+            )
+        }
+    }
 
     let openapi = ApiDoc::openapi();
 
     cfg.service(
-        scope("/attendance")
-            // Seminar routes
-            .service(submit_seminar_attendance)
-            .service(get_seminars_by_user)
-            .service(get_seminars)
-            .service(delete_seminar)
-            .service(edit_seminar_attendance)
-            // Directorship routes
-            .service(submit_directorship_attendance)
-            .service(get_directorships_by_user)
-            .service(get_directorships)
-            .service(delete_directorship)
-            .service(edit_directorship_attendance)
-            // House meeting routes
-            .service(submit_hm_attendance)
-            .service(get_hm_absences_by_user)
-            .service(get_hm_attendance_by_user_evals)
-            .service(modify_hm_attendance),
-    )
-    .service(
-        scope("/evals")
-            // Evals routes
-            .service(get_intro_evals)
-            .service(get_member_evals)
-            .service(get_conditional)
-            .service(get_gatekeep)
-            .service(create_batch)
-            .service(pull_user)
-            .service(submit_batch_pr)
-            .service(get_pull_requests)
-            .service(get_batches),
+        scope("/api")
+            .service(
+                scope("/attendance")
+                    // Seminar routes
+                    .service(submit_seminar_attendance)
+                    .service(get_seminars_by_user)
+                    .service(get_seminars)
+                    .service(delete_seminar)
+                    .service(edit_seminar_attendance)
+                    // Directorship routes
+                    .service(submit_directorship_attendance)
+                    .service(get_directorships_by_user)
+                    .service(get_directorships)
+                    .service(delete_directorship)
+                    .service(edit_directorship_attendance),
+                    // House meeting routes
+                    .service(submit_hm_attendance)
+                    .service(get_hm_absences_by_user)
+                    .service(get_hm_attendance_by_user_evals)
+                    .service(modify_hm_attendance),            
+      )
+            .service(
+                scope("/evals")
+                    // Evals routes
+                    .service(get_intro_evals_wrapper)
+                    .service(get_member_evals)
+                    .service(get_conditional)
+                    .service(get_gatekeep),
+            )
+            .service(
+                scope("/users")
+                    // User routes
+                    .service(get_voting_count)
+                    .service(get_active_count)
+                    .service(search_members)
+                    .service(all_members)
+                    .service(create_freshman_user)
+                    .service(convert_freshman_user),
+            )
+            .service(scope("/forms").service(get_intro_form_for_user)),
     )
     .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));
 }
@@ -110,5 +156,6 @@ pub async fn get_app_data() -> Data<AppState> {
             NaiveTime::from_hms_opt(0, 0, 0).unwrap(),
         ),
         ldap,
+        jwt_cache: Arc::new(Mutex::new(HashMap::new())),
     })
 }

@@ -1,6 +1,8 @@
-/*
-
-use crate::schema::db;
+use crate::{
+    api::log_query_as,
+    app::AppState,
+    schema::{api::IntroFormSubmission, db},
+};
 use actix_web::{
     get, post,
     web::{Data, Json, Path},
@@ -9,6 +11,30 @@ use actix_web::{
 use serde_json::json;
 use sqlx::{query, query_as};
 
+#[get("/intro/{uid}")]
+pub async fn get_intro_form_for_user(
+    state: Data<AppState>,
+    path: Path<(String,)>,
+) -> impl Responder {
+    let (uid,) = path.into_inner();
+    match log_query_as(
+        query_as!(
+            IntroFormSubmission,
+            "select uid, social_events, other_notes as comments from freshman_eval_data where uid = $1",
+	    uid
+        )
+        .fetch_all(&state.db)
+        .await,
+        None,
+    )
+    .await
+    {
+        Ok((_, ret)) => HttpResponse::Ok().json(ret),
+        Err(e) => return e,
+    }
+}
+
+/*
 #[post("/forms/mproj")]
 pub async fn submit_mproj(state: Data<AppState>, body: MajorProjectSubmission) -> impl Responder {
     match query!("INSERT INTO major_projects(uid, name, description, active, status, date) VALUES ($1, $2, $3, $4, $5, $6)", body.uid, body.name, body.description, true, MajorProjectStatus::Pending, Utc::now().naive_utc())

@@ -6,11 +6,10 @@
 
 use chrono::{NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
-use sqlx::types::Json;
 use utoipa::ToSchema;
 
 use super::db::{
-    AttendanceStatus, BatchComparison, BatchCondition, BatchConditionType, CommitteeType,
+    AttendanceStatus, BatchComparison, BatchConditionType, BatchConditionType, CommitteeType,
     CoopSemester, FreshmanBatchPull, FreshmanBatchUser, MajorProjectStatus, MemberBatchPull,
     MemberBatchUser,
 };
@@ -103,14 +102,6 @@ pub struct Directorship {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct MeetingAttendance {
-    pub name: String,
-    pub date: NaiveDateTime,
-    pub members: Vec<String>,
-    pub frosh: Vec<i32>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct DirectorshipAttendance {
     pub committee: CommitteeType,
     pub timestamp: chrono::NaiveDateTime,
@@ -120,7 +111,22 @@ pub struct DirectorshipAttendance {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct MemberHouseAttendance {
+
+pub struct NewIntroMember {
+    pub name: String,
+    pub eval_date: chrono::NaiveDate,
+    pub onfloor_status: bool,
+    pub room_number: Option<String>,
+    pub rit_username: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct FreshmanUpgrade {
+    pub fid: i32,
+    pub uid: String,
+}
+
+pub struct IndividualHouseAttendance {
     pub name: String,
     pub att_status: AttendanceStatus,
 }
@@ -164,10 +170,63 @@ pub struct CoopSubmission {
     pub semester: CoopSemester,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct IntroFormSubmission {
     pub uid: String,
-    pub social_events: String,
-    pub comments: String,
+    pub social_events: Option<String>,
+    pub comments: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct BatchConditionSubmission {
+    pub value: i32,
+    pub condition: BatchConditionType,
+    pub comparison: BatchComparison,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct FreshmanBatchSubmission {
+    pub fid: i32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct BatchSubmission {
+    pub name: String,
+    pub conditions: Vec<BatchConditionSubmission>,
+    pub freshman_users: Vec<FreshmanBatchSubmission>,
+    pub member_users: Vec<MemberBatchUser>,
+}
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct FreshmanPull {
+    pub fid: i32,
+    pub reason: String,
+    pub puller: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct MemberPull {
+    pub uid: String,
+    pub reason: String,
+    pub puller: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct PullRequests {
+    pub frosh: Vec<FreshmanPull>,
+    pub members: Vec<MemberPull>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct Batch {
+    /// Name of the batch
+    pub name: String,
+    /// Uid of the creator
+    pub creator: String,
+    /// A vector of conditions formatted "{condition} {comparison} {value}"
+    pub conditions: Vec<String>,
+    /// A vector of two comma separated values, name and CSH username.
+    /// If the user doesn't have an account, the second value will be empty.
+    pub members: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]

@@ -1,5 +1,6 @@
 use crate::api::log_query_as;
 use crate::app::AppState;
+use crate::auth::CSHAuth;
 use crate::ldap::{get_active_upperclassmen, get_intro_members, get_user};
 use crate::schema::api::{IntroStatus, MemberStatus, Packet};
 use actix_web::{
@@ -111,7 +112,9 @@ async fn get_freshmen_sdm(
                              sd.fid,
                              sd.seminars,
                              sd.directorships) AS status
-                    LEFT JOIN UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[]) AS packet(username, name, signatures, max_signatures) ON
+
+                    LEFT JOIN UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[]) AS \
+             packet(username, name, signatures, max_signatures) ON
                         packet.username = status.username
                     WHERE packet.name IS NOT NULL
                         AND status.seminars IS NOT NULL
@@ -120,16 +123,19 @@ async fn get_freshmen_sdm(
                         AND packet.signatures IS NOT NULL
                         AND packet.max_signatures IS NOT NULL
 ",
-        &usernames, &names, &signatures, &max_signatures)
+
+            &usernames,
+            &names,
+            &signatures,
+            &max_signatures
+        )
         .fetch_all(conditional_db)
         .await,
         None,
     )
     .await
     {
-        Ok((_, intros)) => {
-          Ok(intros)
-        }
+        Ok((_, intros)) => Ok(intros),
         Err(e) => Err(e),
     }
 }
@@ -153,8 +159,11 @@ async fn get_intro_member_sdm(
                     status.missed_hms as \"missed_hms!\",
                     packet.signatures as \"signatures!\",
                     packet.max_signatures as \"max_signatures!\"
-FROM (SELECT sd.uid, sd.rit_username, sd.seminars, sd.directorships, count(mha.attendance_status) FILTER(WHERE mha.attendance_status = 'Absent') AS missed_hms
-FROM (SELECT s.uid, s.rit_username, s.seminars, count(cm.approved) FILTER(WHERE cm.approved) AS directorships
+
+FROM (SELECT sd.uid, sd.rit_username, sd.seminars, sd.directorships, count(mha.attendance_status) \
+             FILTER(WHERE mha.attendance_status = 'Absent') AS missed_hms
+FROM (SELECT s.uid, s.rit_username, s.seminars, count(cm.approved) FILTER(WHERE cm.approved) AS \
+             directorships
 FROM (SELECT ur.uid, ur.rit_username, count(ts.approved) FILTER(WHERE ts.approved) AS seminars
 FROM UNNEST($1::varchar[], $2::varchar[]) AS ur(uid, rit_username)
 LEFT JOIN member_seminar_attendance msa ON msa.uid = ur.uid
@@ -165,7 +174,9 @@ LEFT JOIN committee_meetings cm ON cm.id = mca.meeting_id
 GROUP BY s.uid, s.rit_username, s.seminars) AS sd
 LEFT JOIN member_hm_attendance mha ON mha.uid = sd.uid
 GROUP BY sd.uid, sd.rit_username, sd.seminars, sd.directorships) as status
-LEFT JOIN UNNEST($3::varchar[], $4::varchar[], $5::int8[], $6::int8[]) AS packet(username, \"name\", signatures, max_signatures) ON packet.username=status.rit_username
+
+LEFT JOIN UNNEST($3::varchar[], $4::varchar[], $5::int8[], $6::int8[]) AS packet(username, \
+             \"name\", signatures, max_signatures) ON packet.username=status.rit_username
 WHERE status.uid IS NOT NULL
 AND packet.name IS NOT NULL
 AND status.seminars IS NOT NULL
@@ -173,16 +184,20 @@ AND status.directorships IS NOT NULL
 AND status.missed_hms IS NOT NULL
 AND packet.signatures IS NOT NULL
 AND packet.max_signatures IS NOT NULL",
-        uids, rit_usernames, &usernames, &names, &signatures, &max_signatures)
+            uids,
+            rit_usernames,
+            &usernames,
+            &names,
+            &signatures,
+            &max_signatures
+        )
         .fetch_all(conditional_db)
         .await,
         None,
     )
     .await
     {
-        Ok((_, intros)) => {
-          Ok(intros)
-        }
+        Ok((_, intros)) => Ok(intros),
         Err(e) => Err(e),
     }
 }
@@ -196,38 +211,45 @@ async fn get_member_sdm(
     match log_query_as(
         query_as!(
             MemberStatus,
-          "
+            "
 SELECT sdm.uid AS \"uid!\",
                     sdm.name as \"name!\",
                     sdm.seminars as \"seminars!\",
                     sdm.directorships as \"directorships!\",
                     sdm.missed_hms as \"missed_hms!\",
                     count(mp.status) FILTER(WHERE mp.status='Passed') AS \"major_projects!\"
-FROM (SELECT sd.uid, sd.name, sd.seminars, sd.directorships, count(mha.attendance_status) FILTER(WHERE mha.attendance_status = 'Absent') AS missed_hms
-FROM (SELECT s.uid, s.name, s.seminars, count(cm.approved) FILTER(WHERE cm.approved) AS directorships
+
+FROM (SELECT sd.uid, sd.name, sd.seminars, sd.directorships, count(mha.attendance_status) \
+             FILTER(WHERE mha.attendance_status = 'Absent') AS missed_hms
+FROM (SELECT s.uid, s.name, s.seminars, count(cm.approved) FILTER(WHERE cm.approved) AS \
+             directorships
 FROM (SELECT ur.uid, ur.name, count(ts.approved) FILTER(WHERE ts.approved) AS seminars
 FROM UNNEST($1::varchar[], $2::varchar[]) AS ur(uid, name)
 LEFT JOIN member_seminar_attendance msa ON msa.uid = ur.uid
-LEFT JOIN (SELECT * FROM technical_seminars ts WHERE ts.timestamp > $3::timestamp) ts ON ts.id = msa.seminar_id
+LEFT JOIN (SELECT * FROM technical_seminars ts WHERE ts.timestamp > $3::timestamp) ts ON ts.id = \
+             msa.seminar_id
 GROUP BY ur.uid, ur.name) AS s
 LEFT JOIN member_committee_attendance mca ON mca.uid = s.uid
-LEFT JOIN (SELECT * FROM committee_meetings cm WHERE cm.timestamp > $3::timestamp) cm ON cm.id = mca.meeting_id 
+LEFT JOIN (SELECT * FROM committee_meetings cm WHERE cm.timestamp > $3::timestamp) cm ON cm.id = \
+             mca.meeting_id 
 GROUP BY s.uid, s.name, s.seminars) AS sd
 LEFT JOIN member_hm_attendance mha ON mha.uid = sd.uid
-LEFT JOIN (SELECT * FROM house_meetings hm WHERE hm.date > $3::timestamp) hm ON hm.id = mha.meeting_id
+LEFT JOIN (SELECT * FROM house_meetings hm WHERE hm.date > $3::timestamp) hm ON hm.id = \
+             mha.meeting_id
 GROUP BY sd.uid, sd.name, sd.seminars, sd.directorships) as sdm
 LEFT JOIN (SELECT * FROM major_projects mp WHERE mp.date > $3::timestamp) mp ON mp.uid = sdm.uid
 GROUP BY sdm.uid, sdm.name, sdm.seminars, sdm.directorships, sdm.missed_hms",
-        uids, names, year_start)
+            uids,
+            names,
+            year_start
+        )
         .fetch_all(conditional_db)
         .await,
         None,
     )
     .await
     {
-        Ok((_, intros)) => {
-          Ok(intros)
-        }
+        Ok((_, intros)) => Ok(intros),
         Err(e) => Err(e),
     }
 }
@@ -260,20 +282,13 @@ pub async fn get_intro_member_evals(
     match get_intro_member_sdm(&intro_uids, &intro_rit_usernames, &packets, &state.db).await {
         Ok(mut intros) => {
             freshmen_status.append(&mut intros);
-            Ok(freshmen_status)
+            return Ok(freshmen_status);
         }
         Err(e) => Err(e),
     }
 }
 
-#[utoipa::path(
-    context_path="/evals",
-    responses(
-        (status = 200, description = "Get all current freshmen evals status", body = [IntroStatus]),
-        (status = 500, description = "Error created by Query"),
-        )
-    )]
-#[get("/intro")]
+
 pub async fn get_intro_evals(state: Data<AppState>) -> impl Responder {
     log!(Level::Info, "Get /evals/intro");
     match get_all_packets(&state.packet_db).await {
@@ -290,15 +305,31 @@ pub async fn get_intro_evals(state: Data<AppState>) -> impl Responder {
 }
 
 #[utoipa::path(
-    context_path="/evals",
+    context_path="/api/evals",
+    responses(
+        (status = 200, description = "Get all current freshmen evals status", body = [IntroStatus]),
+        (status = 500, description = "Error created by Query"),
+        )
+    )]
+#[get("/intro")]
+pub async fn get_intro_evals_wrapper(state: Data<AppState>) -> impl Responder {
+    return match get_intro_evals(state).await {
+        Ok(v) => HttpResponse::Ok().json(v),
+        Err(e) => e,
+    };
+}
+
+#[utoipa::path(
+    context_path="/api/evals",
     responses(
         (status = 200, description = "Get all current member evals status", body = [MemberStatus]),
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[get("/member")]
+
+
+#[get("/member", wrap = "CSHAuth::enabled()")]
 pub async fn get_member_evals(state: Data<AppState>) -> impl Responder {
-    log!(Level::Info, "Get /evals/member");
     let (uids, names): (Vec<String>, Vec<String>) =
         match get_active_upperclassmen(&state.ldap).await {
             Ok(r) => r,
@@ -315,21 +346,19 @@ pub async fn get_member_evals(state: Data<AppState>) -> impl Responder {
 
 #[get("/conditional")]
 pub async fn get_conditional() -> impl Responder {
-    log!(Level::Info, "Get /evals/conditional");
     HttpResponse::ImATeapot()
 }
 
 #[utoipa::path(
-    context_path="/evals",
+    context_path="/api/evals",
     responses(
         (status = 200, description = "Get gatekeep status for a specific user", body = MemberStatus),
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[get("/gatekeep/{user}")]
+#[get("/gatekeep/{user}", wrap = "CSHAuth::enabled()")]
 pub async fn get_gatekeep(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
     let (user,) = path.into_inner();
-    log!(Level::Info, "GET /gatekeep/{}", user);
     let (uids, names): (Vec<String>, Vec<String>) = match get_user(&state.ldap, &user).await {
         Ok(r) => r,
         Err(e) => return HttpResponse::InternalServerError().body(e.to_string()),

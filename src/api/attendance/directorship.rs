@@ -1,5 +1,6 @@
 use crate::api::{log_query, log_query_as, open_transaction};
 use crate::app::AppState;
+use crate::auth::CSHAuth;
 use crate::schema::api::*;
 use crate::schema::db::CommitteeType;
 
@@ -107,13 +108,13 @@ async fn create_directorship_attendance<'a>(
 }
 
 #[utoipa::path(
-    context_path="/attendance",
+    context_path="/api/attendance",
     responses(
         (status = 200, description = "Submit new directorship attendance"),
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[post("/directorship")]
+#[post("/directorship", wrap = "CSHAuth::enabled()")]
 pub async fn submit_directorship_attendance(
     state: Data<AppState>,
     body: Json<DirectorshipAttendance>,
@@ -160,20 +161,18 @@ pub async fn submit_directorship_attendance(
 }
 
 #[utoipa::path(
-    context_path="/attendance",
+    context_path="/api/attendance",
     responses(
         (status = 200, description = "Get all directorships a user has attended", body = [Directorship]),
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[get("/directorship/{user}")]
+#[get("/directorship/{user}", wrap = "CSHAuth::enabled()")]
 pub async fn get_directorships_by_user(
     path: Path<(String,)>,
     state: Data<AppState>,
 ) -> impl Responder {
     let (user,) = path.into_inner();
-    log!(Level::Info, "GET /attendance/directorship/{}", user);
-
     if user.chars().next().unwrap().is_numeric() {
         let user: i32 = match user.parse() {
             Ok(user) => user,
@@ -239,15 +238,14 @@ pub async fn get_directorships_by_user(
 }
 
 #[utoipa::path(
-    context_path="/attendance",
+    context_path="/api/attendance",
     responses(
         (status = 200, description = "Get all directorships in the current operating session", body = [Directorship]),
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[get("/directorship")]
+#[get("/directorship", wrap = "CSHAuth::enabled()")]
 pub async fn get_directorships(state: Data<AppState>) -> impl Responder {
-    log!(Level::Info, "GET /attendance/directorship");
     match query_as!(
         Directorship,
         "SELECT member_seminars.committee AS \"committee: _\",
@@ -284,16 +282,15 @@ pub async fn get_directorships(state: Data<AppState>) -> impl Responder {
 }
 
 #[utoipa::path(
-    context_path="/attendance",
+    context_path="/api/attendance",
     responses(
         (status = 200, description = "Delete directorship with a given id"),
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[delete("/directorship/{id}")]
+#[delete("/directorship/{id}", wrap = "CSHAuth::eboard_only()")]
 pub async fn delete_directorship(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
     let (id,) = path.into_inner();
-    log!(Level::Info, "DELETE /attendance/directorship/{}", id);
     let id = match id.parse::<i32>() {
         Ok(id) => id,
         Err(_e) => {
@@ -337,13 +334,13 @@ pub async fn delete_directorship(path: Path<(String,)>, state: Data<AppState>) -
 }
 
 #[utoipa::path(
-    context_path="/attendance",
+    context_path="/api/attendance",
     responses(
         (status = 200, description = "Update directorship"),
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[put("/directorship/{id}")]
+#[put("/directorship/{id}", wrap = "CSHAuth::eboard_only()")]
 pub async fn edit_directorship_attendance(
     path: Path<(String,)>,
     state: Data<AppState>,
@@ -357,7 +354,6 @@ pub async fn edit_directorship_attendance(
             return HttpResponse::BadRequest().body("Invalid id");
         }
     };
-    log!(Level::Info, "PUT /attendance/seminar/{id}");
     let mut transaction = match open_transaction(&state.db).await {
         Ok(t) => t,
         Err(res) => return res,

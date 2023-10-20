@@ -1,6 +1,7 @@
 use crate::api::{log_query, log_query_as, open_transaction};
 use crate::app::AppState;
-use crate::schema::api::{MeetingAttendance, Seminar, ID};
+use crate::auth::CSHAuth;
+use crate::schema::api::{Seminar, ID};
 use actix_web::{
     delete, get, post, put,
     web::{Data, Json, Path},
@@ -10,18 +11,25 @@ use log::{log, Level};
 use sqlx::{query, query_as};
 
 #[utoipa::path(
-    context_path="/attendance",
+    context_path="/api/attendance",
     responses(
         (status = 200, description = "Submit new seminar attendance"),
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[post("/seminar")]
+#[post("/seminar", wrap = "CSHAuth::enabled()")]
 pub async fn submit_seminar_attendance(
     state: Data<AppState>,
-    body: Json<MeetingAttendance>,
+    body: Json<Seminar>,
 ) -> impl Responder {
-    log!(Level::Info, "POST /attendance/seminar");
+    if body.frosh.is_none() {
+        return HttpResponse::BadRequest().body("Missing attribute 'frosh'");
+    }
+
+    if body.members.is_none() {
+        return HttpResponse::BadRequest().body("Missing attribute 'members'");
+    }
+
     let mut transaction = match open_transaction(&state.db).await {
         Ok(t) => t,
         Err(res) => return res,
@@ -37,7 +45,7 @@ pub async fn submit_seminar_attendance(
             "INSERT INTO technical_seminars (name, timestamp, active, approved)
                 VALUES ($1, $2, $3, $4) RETURNING id",
             body.name,
-            body.date,
+            body.timestamp,
             true,
             false
         )
@@ -55,8 +63,11 @@ pub async fn submit_seminar_attendance(
     }
     log!(Level::Debug, "Inserted meeting into db. ID={}", id);
 
-    let frosh_id = vec![id; body.frosh.len()];
-    let member_id = vec![id; body.members.len()];
+    let frosh = body.frosh.clone().unwrap();
+    let members = body.members.clone().unwrap();
+
+    let frosh_id = vec![id; frosh.len()];
+    let member_id = vec![id; members.len()];
 
     // Add frosh, seminar relation
     match log_query(
@@ -64,7 +75,7 @@ pub async fn submit_seminar_attendance(
             "INSERT INTO freshman_seminar_attendance (fid, seminar_id)
                 SELECT fid, seminar_id
                 FROM UNNEST($1::int4[], $2::int4[]) AS a(fid, seminar_id)",
-            body.frosh.as_slice(),
+            frosh.as_slice(),
             frosh_id.as_slice()
         )
         .fetch_all(&state.db)
@@ -86,7 +97,7 @@ pub async fn submit_seminar_attendance(
             "INSERT INTO member_seminar_attendance (uid, seminar_id)
                 SELECT uid, seminar_id
                 FROM UNNEST($1::TEXT[], $2::int4[]) AS a(uid, seminar_id)",
-            body.members.as_slice(),
+            members.as_slice(),
             member_id.as_slice()
         )
         .fetch_all(&state.db)
@@ -114,17 +125,16 @@ pub async fn submit_seminar_attendance(
 }
 
 #[utoipa::path(
-    context_path="/attendance",
+    context_path="/api/attendance",
     responses(
         (status = 200, description = "List all seminars a user has attended", body = [Seminar]),
         (status = 400, description = "Invalid user"),
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[get("/seminar/{user}")]
+#[get("/seminar/{user}", wrap = "CSHAuth::enabled()")]
 pub async fn get_seminars_by_user(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
     let (user,) = path.into_inner();
-    log!(Level::Info, "GET /attendance/seminar/{}", user);
     if user.chars().next().unwrap().is_numeric() {
         let user: i32 = match user.parse() {
             Ok(user) => user,
@@ -190,15 +200,15 @@ pub async fn get_seminars_by_user(path: Path<(String,)>, state: Data<AppState>) 
 }
 
 #[utoipa::path(
-    context_path="/attendance",
+    context_path="/api/attendance",
     responses(
         (status = 200, description = "Get all seminars in the current operating session", body = [Seminar]),
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[get("/seminar")]
+#[get("/seminar", wrap = "CSHAuth::enabled()")]
 pub async fn get_seminars(state: Data<AppState>) -> impl Responder {
-    log!(Level::Info, "GET /attendance/seminar");
+    log!(Level::Debug, "{}", &state.year_start);
     match query_as!(
         Seminar,
         "SELECT member_seminars.name,
@@ -227,16 +237,15 @@ pub async fn get_seminars(state: Data<AppState>) -> impl Responder {
 }
 
 #[utoipa::path(
-    context_path="/attendance",
+    context_path="/api/attendance",
     responses(
         (status = 200, description = "Delete seminar with a given id"),
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[delete("/seminar/{id}")]
+#[delete("/seminar/{id}", wrap = "CSHAuth::eboard_only()")]
 pub async fn delete_seminar(path: Path<(String,)>, state: Data<AppState>) -> impl Responder {
     let (id,) = path.into_inner();
-    log!(Level::Info, "DELETE /attedance/seminar/{id}");
     let id = match id.parse::<i32>() {
         Ok(id) => id,
         Err(_e) => {
@@ -309,19 +318,29 @@ pub async fn delete_seminar(path: Path<(String,)>, state: Data<AppState>) -> imp
 }
 
 #[utoipa::path(
-    context_path="/attendance",
+    context_path="/api/attendance",
     responses(
         (status = 200, description = "Update seminar"),
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[put("/seminar/{id}")]
+#[put("/seminar/{id}", wrap = "CSHAuth::eboard_only()")]
 pub async fn edit_seminar_attendance(
     path: Path<(String,)>,
     state: Data<AppState>,
-    body: Json<MeetingAttendance>,
+    body: Json<Seminar>,
 ) -> impl Responder {
     let (id,) = path.into_inner();
+    log!(Level::Info, "PUT /attendance/seminar/{id}");
+
+    if body.frosh.is_none() {
+        return HttpResponse::BadRequest().body("Missing attribute 'frosh'");
+    }
+
+    if body.members.is_none() {
+        return HttpResponse::BadRequest().body("Missing attribute 'members'");
+    }
+
     let id = match id.parse::<i32>() {
         Ok(id) => id,
         Err(_e) => {
@@ -329,7 +348,6 @@ pub async fn edit_seminar_attendance(
             return HttpResponse::BadRequest().body("Invalid id");
         }
     };
-    log!(Level::Info, "PUT /attendance/seminar/{id}");
     let mut transaction = match open_transaction(&state.db).await {
         Ok(t) => t,
         Err(res) => return res,
@@ -370,8 +388,11 @@ pub async fn edit_seminar_attendance(
 
     log!(Level::Trace, "finished deleting existing attendance");
 
-    let frosh_id = vec![id; body.frosh.len()];
-    let member_id = vec![id; body.members.len()];
+    let frosh = body.frosh.clone().unwrap();
+    let members = body.members.clone().unwrap();
+
+    let frosh_id = vec![id; frosh.len()];
+    let member_id = vec![id; members.len()];
 
     // Add frosh, seminar relation
     match log_query(
@@ -379,7 +400,7 @@ pub async fn edit_seminar_attendance(
             "INSERT INTO freshman_seminar_attendance (fid, seminar_id)
                 SELECT fid, seminar_id
                 FROM UNNEST($1::int4[], $2::int4[]) AS a(fid, seminar_id)",
-            body.frosh.as_slice(),
+            frosh.as_slice(),
             frosh_id.as_slice()
         )
         .fetch_all(&state.db)
@@ -401,7 +422,7 @@ pub async fn edit_seminar_attendance(
             "INSERT INTO member_seminar_attendance (uid, seminar_id)
                 SELECT uid, seminar_id
                 FROM UNNEST($1::TEXT[], $2::int4[]) AS a(uid, seminar_id)",
-            body.members.as_slice(),
+            members.as_slice(),
             member_id.as_slice()
         )
         .fetch_all(&state.db)

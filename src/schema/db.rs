@@ -12,17 +12,22 @@ pub enum CommitteeType {
     Evaluations,
     History,
     Social,
+    #[serde(rename = "OpComm")]
     Opcomm,
     #[sqlx(rename = "R&D")]
+    #[serde(rename = "Research and Development")]
     Rnd,
     #[sqlx(rename = "House Improvements")]
+    #[serde(rename = "House Improvements")]
     Imps,
     Financial,
     /// Unused (?), but valid within the API
     Chairman,
     #[sqlx(rename = "Ad-Hoc")]
+    #[serde(rename = "Ad-Hoc")]
     Adhoc,
     #[sqlx(rename = "Public Relations")]
+    #[serde(rename = "Public Relations")]
     PR,
 }
 
