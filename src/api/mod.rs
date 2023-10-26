@@ -24,6 +24,10 @@ pub mod users {
     pub mod routes;
 }
 
+pub mod housing {
+    pub mod routes;
+}
+
 pub async fn open_transaction(db: &Pool<Postgres>) -> Result<Transaction<Postgres>, HttpResponse> {
     match db.try_begin().await {
         Ok(Some(t)) => Ok(t),

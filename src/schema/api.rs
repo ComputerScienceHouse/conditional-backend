@@ -18,6 +18,11 @@ pub struct ID {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct UID {
+    pub uid: String
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct Date {
     pub date: NaiveDate,
 }
