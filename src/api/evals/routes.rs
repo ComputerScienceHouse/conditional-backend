@@ -111,6 +111,7 @@ async fn get_freshmen_sdm(
                              sd.fid,
                              sd.seminars,
                              sd.directorships) AS status
+
                     LEFT JOIN UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[]) AS \
              packet(username, name, signatures, max_signatures) ON
                         packet.username = status.username
@@ -147,7 +148,8 @@ async fn get_intro_member_sdm(
     match log_query_as(
         query_as!(
             IntroStatus,
-            "SELECT null::int4 as fid,
+            "
+             SELECT null::int4 as fid,
                     packet.name as \"name!\",
                     status.uid as \"uid!\",
                     status.seminars as \"seminars!\",
@@ -155,6 +157,7 @@ async fn get_intro_member_sdm(
                     status.missed_hms as \"missed_hms!\",
                     packet.signatures as \"signatures!\",
                     packet.max_signatures as \"max_signatures!\"
+
 FROM (SELECT sd.uid, sd.rit_username, sd.seminars, sd.directorships, count(mha.attendance_status) \
              FILTER(WHERE mha.attendance_status = 'Absent') AS missed_hms
 FROM (SELECT s.uid, s.rit_username, s.seminars, count(cm.approved) FILTER(WHERE cm.approved) AS \
@@ -169,6 +172,7 @@ LEFT JOIN committee_meetings cm ON cm.id = mca.meeting_id
 GROUP BY s.uid, s.rit_username, s.seminars) AS sd
 LEFT JOIN member_hm_attendance mha ON mha.uid = sd.uid
 GROUP BY sd.uid, sd.rit_username, sd.seminars, sd.directorships) as status
+
 LEFT JOIN UNNEST($3::varchar[], $4::varchar[], $5::int8[], $6::int8[]) AS packet(username, \
              \"name\", signatures, max_signatures) ON packet.username=status.rit_username
 WHERE status.uid IS NOT NULL
@@ -212,6 +216,7 @@ SELECT sdm.uid AS \"uid!\",
                     sdm.directorships as \"directorships!\",
                     sdm.missed_hms as \"missed_hms!\",
                     count(mp.status) FILTER(WHERE mp.status='Passed') AS \"major_projects!\"
+
 FROM (SELECT sd.uid, sd.name, sd.seminars, sd.directorships, count(mha.attendance_status) \
              FILTER(WHERE mha.attendance_status = 'Absent') AS missed_hms
 FROM (SELECT s.uid, s.name, s.seminars, count(cm.approved) FILTER(WHERE cm.approved) AS \
@@ -247,7 +252,9 @@ GROUP BY sdm.uid, sdm.name, sdm.seminars, sdm.directorships, sdm.missed_hms",
     }
 }
 
-pub async fn get_intro_evals(state: Data<AppState>) -> Result<Vec<IntroStatus>, HttpResponse> {
+pub async fn get_intro_member_evals(
+    state: &Data<AppState>,
+) -> Result<Vec<IntroStatus>, HttpResponse> {
     let packets: Vec<Packet>;
     let mut freshmen_status: Vec<IntroStatus>;
     match get_all_packets(&state.packet_db).await {
@@ -286,9 +293,9 @@ pub async fn get_intro_evals(state: Data<AppState>) -> Result<Vec<IntroStatus>, 
         (status = 500, description = "Error created by Query"),
         )
     )]
-#[get("/intro", wrap = "CSHAuth::enabled()")]
+#[get("/intro")]
 pub async fn get_intro_evals_wrapper(state: Data<AppState>) -> impl Responder {
-    return match get_intro_evals(state).await {
+    return match get_intro_member_evals(&state).await {
         Ok(v) => HttpResponse::Ok().json(v),
         Err(e) => e,
     };

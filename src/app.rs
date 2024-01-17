@@ -1,8 +1,9 @@
 use crate::{
     api::{
-        attendance::{directorship::*, seminar::*},
+        attendance::{directorship::*, house::*, seminar::*},
+        batch::batch::*,
         evals::routes::*,
-        forms::routes::get_intro_form_for_user,
+        forms::routes::*,
         users::routes::*,
     },
     ldap::{client::LdapClient, user::LdapUser},
@@ -47,10 +48,23 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             get_directorships,
             edit_directorship_attendance,
             delete_directorship,
+            // attendance/house
+            submit_hm_attendance,
+            get_hm_absences_by_user,
+            get_hm_attendance_by_user_evals,
+            modify_hm_attendance,
             // evals
             get_intro_evals_wrapper,
             get_member_evals,
             get_gatekeep,
+            // evals/batch
+            create_batch,
+            pull_user,
+            submit_batch_pr,
+            get_pull_requests,
+            pass_batch,
+            fail_batch,
+            get_batches,
             // user
             get_voting_count,
             get_active_count,
@@ -58,6 +72,8 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             all_members,
             create_freshman_user,
             convert_freshman_user,
+            // forms
+            get_intro_form_for_user
         ),
         components(schemas(Seminar, Directorship, CommitteeType, LdapUser, NewIntroMember, FreshmanUpgrade, MemberStatus, IntroStatus)),
 
@@ -97,7 +113,12 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                     .service(get_directorships_by_user)
                     .service(get_directorships)
                     .service(delete_directorship)
-                    .service(edit_directorship_attendance),
+                    .service(edit_directorship_attendance)
+                    // House meeting routes
+                    .service(submit_hm_attendance)
+                    .service(get_hm_absences_by_user)
+                    .service(get_hm_attendance_by_user_evals)
+                    .service(modify_hm_attendance),
             )
             .service(
                 scope("/evals")
@@ -105,7 +126,17 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                     .service(get_intro_evals_wrapper)
                     .service(get_member_evals)
                     .service(get_conditional)
-                    .service(get_gatekeep),
+                    .service(get_gatekeep)
+                    .service(
+                        scope("/batch")
+                            .service(get_batches)
+                            .service(fail_batch)
+                            .service(pass_batch)
+                            .service(get_pull_requests)
+                            .service(submit_batch_pr)
+                            .service(pull_user)
+                            .service(create_batch),
+                    ),
             )
             .service(
                 scope("/users")

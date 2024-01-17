@@ -15,7 +15,6 @@ use sqlx::{query, query_as};
     context_path="/api/users",
     responses(
         (status = 200, description = "The number of active voting members"),
-
         )
     )]
 #[get("/voting_count", wrap = "CSHAuth::enabled()")]
