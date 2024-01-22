@@ -159,6 +159,7 @@ pub async fn get_app_data() -> Data<AppState> {
         .await
         .expect("Could not connect to database");
     println!("Successfully opened conditional db connection");
+    sqlx::migrate!().run(&conditional_pool).await;
     let packet_pool = PgPoolOptions::new()
         .connect(&env::var("PACKET_DATABASE_URL").expect("PACKET_DATABASE_URL Not set"))
         .await

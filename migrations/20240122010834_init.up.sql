@@ -47,12 +47,14 @@ CREATE TYPE public."semester_enum" AS ENUM (
 -- user
 CREATE TABLE public."user" (
 	id int4 PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-	"name" varchar NULL,
-	username varchar NOT NULL,
+	"name" varchar NOT NULL,
+	uuid varchar NOT NULL,
+  rit_username varchar NOT NULL,
+  csh_username varchar NULL,
 	is_csh bool NOT NULL,
 	is_intro bool NOT NULL
 );
-CREATE INDEX user_username_idx ON public."user" USING btree (username);
+CREATE INDEX user_uuid_idx ON public."user" USING btree (uuid);
 
 -- intro eval block
 CREATE TABLE public.intro_eval_block (
@@ -80,15 +82,15 @@ CREATE TABLE public.other_meeting (
 -- {{{
 -- other meeting attendance
 CREATE TABLE om_attendance (
-	uid int4 NOT NULL REFERENCES "user"(id),
-	om_id int4 NOT NULL REFERENCES other_meeting(id),
+	uid int4 NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+	om_id int4 NOT NULL REFERENCES other_meeting(id) ON DELETE CASCADE,
 	CONSTRAINT om_attendance_pkey PRIMARY KEY (uid, om_id)
 );
 
 -- house meeting attendance
 CREATE TABLE hm_attendance (
-	uid int4 NOT NULL REFERENCES "user"(id),
-	house_meeting_id int4 NOT NULL REFERENCES house_meeting(id),
+	uid int4 NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+	house_meeting_id int4 NOT NULL REFERENCES house_meeting(id) ON DELETE CASCADE,
 	attendance_status public."hm_attendance_status_enum" NOT NULL,
 	excuse varchar NULL
 );
@@ -96,8 +98,8 @@ CREATE TABLE hm_attendance (
 -- intro eval data
 CREATE TABLE intro_eval_data (
 	id int4 PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-	uid int4 NOT NULL REFERENCES "user"(id),
-	eval_block_id int4 NOT NULL REFERENCES intro_eval_block(id),
+	uid int4 NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+	eval_block_id int4 NOT NULL REFERENCES intro_eval_block(id) ON DELETE CASCADE,
 	social_events varchar NOT NULL,
 	other_comments varchar NOT NULL,
 	status public."eval_status_enum" NOT NULL
@@ -107,20 +109,20 @@ CREATE TABLE intro_eval_data (
 CREATE TABLE batch (
 	id int4 PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
 	"name" varchar(64) NOT NULL,
-	creator int4 NOT NULL REFERENCES "user"(id),
+	creator int4 NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
 	approved bool NOT NULL
 );
 
 -- batch pull
 CREATE TABLE batch_pull (
-	uid int4 NOT NULL REFERENCES "user"(id),
+	uid int4 NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
 	CONSTRAINT batch_pull_pkey PRIMARY KEY (uid)
 );
 
 -- conditional
 CREATE TABLE conditional (
 	id int4 PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-	uid int4 NOT NULL REFERENCES "user"(id),
+	uid int4 NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
 	description text NOT NULL,
 	start_date date NOT NULL,
 	due_date date NOT NULL,
@@ -130,14 +132,14 @@ CREATE TABLE conditional (
 -- coop
 CREATE TABLE coop (
 	id int4 PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-	uid int4 NOT NULL REFERENCES "user"(id),
+	uid int4 NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
 	"date" date NOT NULL,
 	semester public."semester_enum" NOT NULL
 );
 
 -- housing queue
 CREATE TABLE housing_queue (
-	uid int4 NOT NULL REFERENCES "user"(id),
+	uid int4 NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
 	datetime_added timestamp NOT NULL,
 	CONSTRAINT housing_queue_pkey PRIMARY KEY (uid)
 );
@@ -145,7 +147,7 @@ CREATE TABLE housing_queue (
 -- major project
 CREATE TABLE major_project (
 	id int4 PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-	uid int4 NOT NULL REFERENCES "user"(id),
+	uid int4 NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
 	"name" varchar(80) NOT NULL,
 	description text NOT NULL,
 	"date" date NOT NULL,
@@ -155,7 +157,7 @@ CREATE TABLE major_project (
 
 -- member eval data
 CREATE TABLE member_eval_data (
-	uid int4 NOT NULL REFERENCES "user"(id),
+	uid int4 NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
 	"year" int4 NOT NULL,
 	status public."eval_status_enum" NOT NULL
 );
@@ -164,14 +166,14 @@ CREATE TABLE member_eval_data (
 -- {{{
 -- batch user
 CREATE TABLE batch_user (
-	uid int4 NOT NULL REFERENCES "user"(id),
-	batch_id int4 NOT NULL REFERENCES batch(id)
+	uid int4 NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+	batch_id int4 NOT NULL REFERENCES batch(id ON DELETE CASCADE)
 );
 
 -- batch condition
 CREATE TABLE batch_condition (
 	id int4 PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-	batch_id int4 NOT NULL REFERENCES batch(id),
+	batch_id int4 NOT NULL REFERENCES batch(id) ON DELETE CASCADE,
 	value int4 NOT NULL,
 	criterion public."batch_criterion_enum" NOT NULL,
 	comparison public."batch_comparison_enum" NOT NULL
