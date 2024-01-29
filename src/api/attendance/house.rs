@@ -141,7 +141,7 @@ pub async fn get_hm_attendance_by_user_evals(
 pub async fn modify_hm_attendance(
     path: Path<(String,)>,
     state: Data<AppState>,
-    body: Json<EvalsHmAtt>,
+    body: Json<HmAttendance>,
 ) -> impl Responder {
     let (user,) = path.into_inner();
     log!(Level::Info, "PUT /attendance/house/{user}");

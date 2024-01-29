@@ -55,6 +55,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(Logger::new(
                 "%a \"%r\" %s %b \"%{Referer}i\" \"%{User-Agent}i\" %T",
             ))
+            .wrap(CSHAuth::new())
             .configure(configure_app)
             .app_data(app_data.clone())
     })

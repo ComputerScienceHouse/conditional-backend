@@ -27,7 +27,7 @@ async fn get_all_batches(state: &Data<AppState>) -> Result<Vec<Batch>, HttpRespo
         .into_iter()
         .map(|is| {
             (
-                ((is.name, is.uid), is.fid.unwrap_or(0)),
+                ((is.name, is.username), is.username.unwrap_or(0)),
                 (
                     (is.seminars, is.directorships),
                     (is.missed_hms, 100 * is.signatures / is.max_signatures),
@@ -640,7 +640,7 @@ pub async fn get_batches(state: Data<AppState>) -> impl Responder {
         .into_iter()
         .map(|is| {
             (
-                ((is.name, is.uid), is.fid.unwrap_or(0)),
+                ((is.name, is.username), is.username.unwrap_or(0)),
                 (
                     (is.seminars, is.directorships),
                     (is.missed_hms, 100 * is.signatures / is.max_signatures),

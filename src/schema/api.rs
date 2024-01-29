@@ -5,22 +5,14 @@
 // as relations in one of two tables
 
 use chrono::{NaiveDate, NaiveDateTime};
+use derive_more::{Deref, Display};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use super::db::{
-    AttendanceStatus, BatchComparison, BatchConditionType, CommitteeType, CoopSemester,
-    MajorProjectStatus, MemberBatchUser,
+    AttendanceStatus, BatchComparison, BatchCondition, MajorProjectStatusEnum, MeetingType,
+    SemesterEnum,
 };
-
-pub struct ID {
-    pub id: i32,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Date {
-    pub date: NaiveDate,
-}
 
 #[derive(Serialize, Deserialize)]
 pub struct EvalsHmAtt {
@@ -30,13 +22,25 @@ pub struct EvalsHmAtt {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct IntroStatus {
-    /// Freshman ID of the intro member, if they don't have an account
-    pub fid: Option<i32>,
+pub struct User {
+    /// User ID of the member
+    pub uid: i32,
     /// Name of the intro member
     pub name: String,
+    /// RIT username of the member
+    pub rit_username: String,
     /// CSH username of the member, if they have one
-    pub uid: Option<String>,
+    pub csh_username: Option<String>,
+    /// If the user has a CSH account
+    pub is_csh: bool,
+    /// If the user is an intro member
+    pub is_intro: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct IntroStatus {
+    /// User object
+    pub user: User,
     /// Number of seminars attended
     pub seminars: i64,
     /// Number of directorships attended
@@ -63,10 +67,12 @@ pub struct Packet {
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct MemberStatus {
+    /// User ID of the member
+    pub id: i32,
     /// Name of the member
     pub name: String,
     /// CSH username
-    pub uid: String,
+    pub username: String,
     /// Number of seminars attended
     pub seminars: i64,
     /// Number of directorships attended
@@ -92,25 +98,22 @@ pub struct Seminar {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct Directorship {
-    pub committee: CommitteeType,
+pub struct Meeting {
+    /// ID of the meeting
+    pub id: i32,
+    /// Type of the meeting
+    pub meeting_type: MeetingType,
+    /// Date the meeting occured
     pub timestamp: chrono::NaiveDateTime,
-    pub members: Option<Vec<String>>,
-    pub frosh: Option<Vec<i32>>,
+    /// Name of the meeting
+    pub members: String,
+    /// If the meeting has been approved
     pub approved: bool,
+    /// List of [Users](User) that attended
+    pub atendees: Vec<User>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct DirectorshipAttendance {
-    pub committee: CommitteeType,
-    pub timestamp: chrono::NaiveDateTime,
-    pub approved: bool,
-    pub members: Vec<String>,
-    pub frosh: Vec<i32>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-
 pub struct NewIntroMember {
     pub name: String,
     pub eval_date: chrono::NaiveDate,
@@ -121,18 +124,12 @@ pub struct NewIntroMember {
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct FreshmanUpgrade {
-    pub fid: i32,
-    pub uid: String,
+    pub uid: i32,
+    pub ipa_unique_id: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct MemberHouseAttendance {
-    pub uid: String,
-    pub att_status: AttendanceStatus,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct FroshHouseAttendance {
+pub struct HouseMeetingAttendance {
     pub fid: i32,
     pub att_status: AttendanceStatus,
 }
@@ -140,10 +137,10 @@ pub struct FroshHouseAttendance {
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct HouseAttendance {
     pub date: NaiveDate,
-    pub members: Vec<MemberHouseAttendance>,
-    pub frosh: Vec<FroshHouseAttendance>,
+    pub attendees: Vec<User>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct MajorProjectSubmission {
     /// Username of member who submitted this major project
     pub uid: String,
@@ -153,6 +150,7 @@ pub struct MajorProjectSubmission {
     pub description: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct MajorProjectSubmissionEboard {
     /// Username of member who submitted this major project
     pub uid: String,
@@ -161,13 +159,13 @@ pub struct MajorProjectSubmissionEboard {
     /// Description of this major project
     pub description: Option<String>,
     /// idk something fs
-    pub status: MajorProjectStatus,
+    pub status: MajorProjectStatusEnum,
 }
 
 pub struct CoopSubmission {
     pub uid: String,
     pub date: NaiveDateTime,
-    pub semester: CoopSemester,
+    pub semester: SemesterEnum,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
@@ -180,7 +178,7 @@ pub struct IntroFormSubmission {
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct BatchConditionSubmission {
     pub value: i32,
-    pub condition: BatchConditionType,
+    pub condition: BatchCondition,
     pub comparison: BatchComparison,
 }
 
@@ -194,7 +192,7 @@ pub struct BatchSubmission {
     pub name: String,
     pub conditions: Vec<BatchConditionSubmission>,
     pub freshman_users: Vec<FreshmanBatchSubmission>,
-    pub member_users: Vec<MemberBatchUser>,
+    pub users: Vec<i32>,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct FreshmanPull {
@@ -218,11 +216,12 @@ pub struct PullRequests {
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct Batch {
+    /// ID of the batch
     pub id: i32,
     /// Name of the batch
     pub name: String,
-    /// Uid of the creator
-    pub creator: String,
+    /// User ID of the creator
+    pub creator: User,
     /// A vector of conditions formatted "{condition} {comparison} {value}"
     pub conditions: Vec<String>,
     /// A vector of two comma separated values, name and CSH username.

@@ -1,16 +1,14 @@
 use crate::{
     api::{
-        attendance::{directorship::*, house::*, seminar::*},
-        batch::batch::*,
-        evals::routes::*,
-        forms::routes::*,
-        users::routes::*,
+        attendance::meeting::*,
+        // attendance::{house::*, meeting::*},
+        // batch::batch::*,
+        // evals::routes::*,
+        // forms::routes::*,
+        // users::routes::*,
     },
     ldap::{client::LdapClient, user::LdapUser},
-    schema::{
-        api::{Directorship, FreshmanUpgrade, IntroStatus, MemberStatus, NewIntroMember, Seminar},
-        db::CommitteeType,
-    },
+    schema::db::MeetingType,
 };
 use actix_web::web::{self, scope, Data};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
@@ -37,50 +35,50 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
     #[openapi(
         paths(
             // attendance/seminar
-            submit_seminar_attendance,
-            get_seminars_by_user,
-            get_seminars,
-            delete_seminar,
-            edit_seminar_attendance,
-            // attendance/directorship
-            submit_directorship_attendance,
-            get_directorships_by_user,
-            get_directorships,
-            edit_directorship_attendance,
-            delete_directorship,
-            // attendance/house
-            submit_hm_attendance,
-            get_hm_absences_by_user,
-            get_hm_attendance_by_user_evals,
-            modify_hm_attendance,
-            // evals
-            get_intro_evals_wrapper,
-            get_member_evals,
-            get_gatekeep,
-            // evals/batch
-            create_batch,
-            pull_user,
-            submit_batch_pr,
-            get_pull_requests,
-            pass_batch,
-            fail_batch,
-            get_batches,
-            // user
-            get_voting_count,
-            get_active_count,
-            search_members,
-            all_members,
-            create_freshman_user,
-            convert_freshman_user,
-            // forms
-            get_intro_form_for_user
+            submit_meeting_attendance,
+            // get_seminars_by_user,
+            // get_seminars,
+            // delete_seminar,
+            // edit_seminar_attendance,
+            // // attendance/directorship
+            // submit_directorship_attendance,
+            // get_directorships_by_user,
+            // get_directorships,
+            // edit_directorship_attendance,
+            // delete_directorship,
+            // // attendance/house
+            // submit_hm_attendance,
+            // get_hm_absences_by_user,
+            // get_hm_attendance_by_user_evals,
+            // modify_hm_attendance,
+            // // evals
+            // get_intro_evals_wrapper,
+            // get_member_evals,
+            // get_gatekeep,
+            // // evals/batch
+            // create_batch,
+            // pull_user,
+            // submit_batch_pr,
+            // get_pull_requests,
+            // pass_batch,
+            // fail_batch,
+            // get_batches,
+            // // user
+            // get_voting_count,
+            // get_active_count,
+            // search_members,
+            // all_members,
+            // create_freshman_user,
+            // convert_freshman_user,
+            // // forms
+            // get_intro_form_for_user
         ),
-        components(schemas(Seminar, Directorship, CommitteeType, LdapUser, NewIntroMember, FreshmanUpgrade, MemberStatus, IntroStatus)),
+        components(schemas(MeetingSubmission, MeetingType)),
 
         tags(
             (name = "Conditional", description = "Conditional Actix API")
             ),
-        modifiers(&SecurityAddon)
+        // modifiers(&SecurityAddon)
     )]
     struct ApiDoc;
 
@@ -99,56 +97,47 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
     let openapi = ApiDoc::openapi();
 
     cfg.service(
-        scope("/api")
-            .service(
-                scope("/attendance")
-                    // Seminar routes
-                    .service(submit_seminar_attendance)
-                    .service(get_seminars_by_user)
-                    .service(get_seminars)
-                    .service(delete_seminar)
-                    .service(edit_seminar_attendance)
-                    // Directorship routes
-                    .service(submit_directorship_attendance)
-                    .service(get_directorships_by_user)
-                    .service(get_directorships)
-                    .service(delete_directorship)
-                    .service(edit_directorship_attendance)
-                    // House meeting routes
-                    .service(submit_hm_attendance)
-                    .service(get_hm_absences_by_user)
-                    .service(get_hm_attendance_by_user_evals)
-                    .service(modify_hm_attendance),
-            )
-            .service(
-                scope("/evals")
-                    // Evals routes
-                    .service(get_intro_evals_wrapper)
-                    .service(get_member_evals)
-                    .service(get_conditional)
-                    .service(get_gatekeep)
-                    .service(
-                        scope("/batch")
-                            .service(get_batches)
-                            .service(fail_batch)
-                            .service(pass_batch)
-                            .service(get_pull_requests)
-                            .service(submit_batch_pr)
-                            .service(pull_user)
-                            .service(create_batch),
-                    ),
-            )
-            .service(
-                scope("/users")
-                    // User routes
-                    .service(get_voting_count)
-                    .service(get_active_count)
-                    .service(search_members)
-                    .service(all_members)
-                    .service(create_freshman_user)
-                    .service(convert_freshman_user),
-            )
-            .service(scope("/forms").service(get_intro_form_for_user)),
+        scope("/api").service(
+            scope("/attendance")
+                // Other meeting routes
+                .service(submit_meeting_attendance), // .service(get_directorships_by_user)
+                                                     // .service(get_directorships)
+                                                     // .service(delete_directorship)
+                                                     // .service(edit_directorship_attendance)
+                                                     // // House meeting routes
+                                                     // .service(submit_hm_attendance)
+                                                     // .service(get_hm_absences_by_user)
+                                                     // .service(get_hm_attendance_by_user_evals)
+                                                     // .service(modify_hm_attendance),
+        ), // .service(
+           //     scope("/evals")
+           //         // Evals routes
+           //         .service(get_intro_evals_wrapper)
+           //         .service(get_member_evals)
+           //         .service(get_conditional)
+           //         .service(get_gatekeep)
+           //         .service(
+           //             scope("/batch")
+           //                 .service(get_batches)
+           //                 .service(fail_batch)
+           //                 .service(pass_batch)
+           //                 .service(get_pull_requests)
+           //                 .service(submit_batch_pr)
+           //                 .service(pull_user)
+           //                 .service(create_batch),
+           //         ),
+           // )
+           // .service(
+           //     scope("/users")
+           //         // User routes
+           //         .service(get_voting_count)
+           //         .service(get_active_count)
+           //         .service(search_members)
+           //         .service(all_members)
+           //         .service(create_freshman_user)
+           //         .service(convert_freshman_user),
+           // )
+           // .service(scope("/forms").service(get_intro_form_for_user)),
     )
     .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));
 }
@@ -159,7 +148,10 @@ pub async fn get_app_data() -> Data<AppState> {
         .await
         .expect("Could not connect to database");
     println!("Successfully opened conditional db connection");
-    sqlx::migrate!().run(&conditional_pool).await;
+    sqlx::migrate!()
+        .run(&conditional_pool)
+        .await
+        .expect("Migration failed to run");
     let packet_pool = PgPoolOptions::new()
         .connect(&env::var("PACKET_DATABASE_URL").expect("PACKET_DATABASE_URL Not set"))
         .await

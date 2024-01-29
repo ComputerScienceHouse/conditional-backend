@@ -48,13 +48,15 @@ CREATE TYPE public."semester_enum" AS ENUM (
 CREATE TABLE public."user" (
 	id int4 PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
 	"name" varchar NOT NULL,
-	uuid varchar NOT NULL,
+	intro_id varchar NULL,
+	ipa_unique_id varchar NULL,
   rit_username varchar NOT NULL,
   csh_username varchar NULL,
 	is_csh bool NOT NULL,
 	is_intro bool NOT NULL
 );
-CREATE INDEX user_uuid_idx ON public."user" USING btree (uuid);
+CREATE INDEX user_ipa_unique_id_idx ON public."user" USING btree (ipa_unique_id);
+CREATE INDEX user_intro_id_idx ON public."user" USING btree (intro_id);
 
 -- intro eval block
 CREATE TABLE public.intro_eval_block (
@@ -72,7 +74,7 @@ CREATE TABLE public.house_meeting (
 -- other meeting
 CREATE TABLE public.other_meeting (
 	id int4 PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-	"date" date NOT NULL,
+	datetime timestamp NOT NULL,
 	"name" varchar NOT NULL,
 	meeting_type public."meeting_type_enum" NOT NULL,
 	approved bool NOT NULL
@@ -167,7 +169,7 @@ CREATE TABLE member_eval_data (
 -- batch user
 CREATE TABLE batch_user (
 	uid int4 NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
-	batch_id int4 NOT NULL REFERENCES batch(id ON DELETE CASCADE)
+	batch_id int4 NOT NULL REFERENCES batch(id) ON DELETE CASCADE
 );
 
 -- batch condition
