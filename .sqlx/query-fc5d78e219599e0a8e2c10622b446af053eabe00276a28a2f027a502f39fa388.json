@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n    UPDATE freshman_eval_data\n    SET freshman_eval_result=$2\n    FROM UNNEST($1::varchar[]) as uids\n    WHERE freshman_eval_data.uid = uids\n    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "VarcharArray",
+        {
+          "Custom": {
+            "name": "freshman_eval_enum",
+            "kind": {
+              "Enum": [
+                "Pending",
+                "Passed",
+                "Failed"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fc5d78e219599e0a8e2c10622b446af053eabe00276a28a2f027a502f39fa388"
+}

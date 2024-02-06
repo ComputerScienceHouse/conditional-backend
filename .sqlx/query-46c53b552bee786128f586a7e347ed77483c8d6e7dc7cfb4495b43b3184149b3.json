@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH fbps_deleted AS (\n                DELETE FROM freshman_batch_pulls fbp \n                WHERE fbp.fid=$1::int4\n            ),\n            fbus_deleted AS (\n                DELETE FROM freshman_batch_users fbu  \n                WHERE fbu.fid=$1::int4\n            )\n            DELETE FROM freshman_accounts fa WHERE fa.id=$1::int4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "46c53b552bee786128f586a7e347ed77483c8d6e7dc7cfb4495b43b3184149b3"
+}

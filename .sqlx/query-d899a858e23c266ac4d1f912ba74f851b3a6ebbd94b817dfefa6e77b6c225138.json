@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT ts.name,\n                        ts.\"timestamp\",\n                        ARRAY[]::varchar[] AS members,\n                        ARRAY[]::integer[] AS frosh,\n                        ts.approved\n                    FROM technical_seminars ts\n                    LEFT JOIN member_seminar_attendance msa ON\n                        msa.seminar_id = ts.id\n                    WHERE ts.approved\n                    AND timestamp > $1::timestamp\n                    AND msa.uid = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "timestamp",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 2,
+        "name": "members",
+        "type_info": "VarcharArray"
+      },
+      {
+        "ordinal": 3,
+        "name": "frosh",
+        "type_info": "Int4Array"
+      },
+      {
+        "ordinal": 4,
+        "name": "approved",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamp",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null,
+      false
+    ]
+  },
+  "hash": "d899a858e23c266ac4d1f912ba74f851b3a6ebbd94b817dfefa6e77b6c225138"
+}

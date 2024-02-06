@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT member_seminars.name,\n                member_seminars.timestamp,\n                member_seminars.members,\n                array_agg(fsa.fid) AS frosh,\n                member_seminars.approved\n            FROM(SELECT ts.id, ts.name, ts.timestamp, array_agg(msa.uid) AS members, ts.approved\n                 FROM technical_seminars ts\n                 INNER JOIN member_seminar_attendance msa ON\n                     msa.seminar_id = ts.id\n                 WHERE timestamp > $1::timestamp\n                 GROUP BY ts.id, ts.name, ts.timestamp, ts.approved) AS member_seminars\n            INNER JOIN freshman_seminar_attendance fsa ON\n                fsa.seminar_id = member_seminars.id\n            GROUP BY member_seminars.id, member_seminars.name, member_seminars.timestamp, member_seminars.members, member_seminars.approved",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "timestamp",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 2,
+        "name": "members",
+        "type_info": "VarcharArray"
+      },
+      {
+        "ordinal": 3,
+        "name": "frosh",
+        "type_info": "Int4Array"
+      },
+      {
+        "ordinal": 4,
+        "name": "approved",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamp"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null,
+      false
+    ]
+  },
+  "hash": "a19086dbead4378b50f1ac3071732522702219e7686fecb5c4d3826724f9d96d"
+}

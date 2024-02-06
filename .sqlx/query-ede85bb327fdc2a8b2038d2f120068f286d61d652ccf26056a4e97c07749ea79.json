@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM freshman_batch_pulls WHERE fid = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ede85bb327fdc2a8b2038d2f120068f286d61d652ccf26056a4e97c07749ea79"
+}

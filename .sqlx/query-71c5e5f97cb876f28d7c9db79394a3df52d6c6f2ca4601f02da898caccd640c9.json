@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT date FROM house_meetings WHERE date > $1 AND id IN (SELECT meeting_id FROM freshman_hm_attendance WHERE fid = $2 AND attendance_status = 'Absent')",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "date",
+        "type_info": "Date"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Date",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "71c5e5f97cb876f28d7c9db79394a3df52d6c6f2ca4601f02da898caccd640c9"
+}

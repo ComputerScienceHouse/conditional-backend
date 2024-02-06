@@ -1,0 +1,43 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO committee_meetings (committee, \"timestamp\", active, approved)\n                VALUES ($1::committees_enum, $2, $3, $4) RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "committees_enum",
+            "kind": {
+              "Enum": [
+                "Evaluations",
+                "History",
+                "Social",
+                "Opcomm",
+                "R&D",
+                "House Improvements",
+                "Financial",
+                "Chairman",
+                "Ad-Hoc",
+                "Public Relations"
+              ]
+            }
+          }
+        },
+        "Timestamp",
+        "Bool",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6c943d84edf4042e22da20e84820f6be567a2f1d4b3d1ed9385c8405ce83b266"
+}

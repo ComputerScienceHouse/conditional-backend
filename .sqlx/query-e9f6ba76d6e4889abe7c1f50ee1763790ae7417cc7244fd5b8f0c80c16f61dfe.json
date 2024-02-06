@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT member_seminars.committee AS \"committee: _\",\n                member_seminars.timestamp,\n                member_seminars.members,\n                array_agg(fsa.fid) AS frosh,\n                member_seminars.approved\n            FROM(\n                SELECT ts.id,\n                       ts.committee,\n                       ts.timestamp,\n                       array_agg(msa.uid) AS members,\n                       ts.approved\n                FROM committee_meetings ts\n                INNER JOIN member_committee_attendance msa ON\n                    msa.meeting_id = ts.id\n                WHERE timestamp > $1\n                GROUP BY ts.id, ts.committee, ts.timestamp, ts.approved) AS member_seminars\n                INNER JOIN freshman_committee_attendance fsa ON\n                    fsa.meeting_id = member_seminars.id\n                GROUP BY member_seminars.id,\n                    member_seminars.committee,\n                    member_seminars.timestamp,\n                    member_seminars.members,\n                    member_seminars.approved",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "committee: _",
+        "type_info": {
+          "Custom": {
+            "name": "committees_enum",
+            "kind": {
+              "Enum": [
+                "Evaluations",
+                "History",
+                "Social",
+                "Opcomm",
+                "R&D",
+                "House Improvements",
+                "Financial",
+                "Chairman",
+                "Ad-Hoc",
+                "Public Relations"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "timestamp",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 2,
+        "name": "members",
+        "type_info": "VarcharArray"
+      },
+      {
+        "ordinal": 3,
+        "name": "frosh",
+        "type_info": "Int4Array"
+      },
+      {
+        "ordinal": 4,
+        "name": "approved",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamp"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null,
+      false
+    ]
+  },
+  "hash": "e9f6ba76d6e4889abe7c1f50ee1763790ae7417cc7244fd5b8f0c80c16f61dfe"
+}

@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select attendance_status as \"attendance_status:_\", excuse, date from (select * from freshman_hm_attendance where fid = $2) as mha left join house_meetings on mha.meeting_id = house_meetings.id where date > $1 and attendance_status != 'Attended'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "attendance_status:_",
+        "type_info": {
+          "Custom": {
+            "name": "attendance_enum",
+            "kind": {
+              "Enum": [
+                "Attended",
+                "Excused",
+                "Absent"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "excuse",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "date",
+        "type_info": "Date"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Date",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "ab0ff0ebc16daaf06683e761e373716a9ac65f82daec356050a8085aef538e83"
+}

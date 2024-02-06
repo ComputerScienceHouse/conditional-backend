@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO member_hm_attendance (uid, meeting_id, attendance_status) SELECT uid, meeting_id, attendance_status as \"attendance_status: AttendanceStatus\" FROM UNNEST($1::int4[], $2::int4[], $3::attendance_enum[]) as a(uid, meeting_id, attendance_status)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4Array",
+        "Int4Array",
+        {
+          "Custom": {
+            "name": "_attendance_enum",
+            "kind": {
+              "Array": {
+                "Custom": {
+                  "name": "attendance_enum",
+                  "kind": {
+                    "Enum": [
+                      "Attended",
+                      "Excused",
+                      "Absent"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ad800347371bed1d1980375901ce95fc48ac12417391ee3bc12dd30ea54de85d"
+}
