@@ -1,0 +1,69 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n             SELECT null::int4 as fid,\n                    packet.name as \"name!\",\n                    status.uid as \"uid!\",\n                    status.seminars as \"seminars!\",\n                    status.directorships as \"directorships!\",\n                    status.missed_hms as \"missed_hms!\",\n                    packet.signatures as \"signatures!\",\n                    packet.max_signatures as \"max_signatures!\"\n\nFROM (SELECT sd.uid, sd.rit_username, sd.seminars, sd.directorships, count(mha.attendance_status) FILTER(WHERE mha.attendance_status = 'Absent') AS missed_hms\nFROM (SELECT s.uid, s.rit_username, s.seminars, count(cm.approved) FILTER(WHERE cm.approved) AS directorships\nFROM (SELECT ur.uid, ur.rit_username, count(ts.approved) FILTER(WHERE ts.approved) AS seminars\nFROM UNNEST($1::varchar[], $2::varchar[]) AS ur(uid, rit_username)\nLEFT JOIN member_seminar_attendance msa ON msa.uid = ur.uid\nLEFT JOIN technical_seminars ts ON ts.id = msa.seminar_id\nGROUP BY ur.uid, ur.rit_username) AS s\nLEFT JOIN member_committee_attendance mca ON mca.uid = s.uid\nLEFT JOIN committee_meetings cm ON cm.id = mca.meeting_id \nGROUP BY s.uid, s.rit_username, s.seminars) AS sd\nLEFT JOIN member_hm_attendance mha ON mha.uid = sd.uid\nGROUP BY sd.uid, sd.rit_username, sd.seminars, sd.directorships) as status\n\nLEFT JOIN UNNEST($3::varchar[], $4::varchar[], $5::int8[], $6::int8[]) AS packet(username, \"name\", signatures, max_signatures) ON packet.username=status.rit_username\nWHERE status.uid IS NOT NULL\nAND packet.name IS NOT NULL\nAND status.seminars IS NOT NULL\nAND status.directorships IS NOT NULL\nAND status.missed_hms IS NOT NULL\nAND packet.signatures IS NOT NULL\nAND packet.max_signatures IS NOT NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "fid",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "name!",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "uid!",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "seminars!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "directorships!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "missed_hms!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "signatures!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "max_signatures!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "VarcharArray",
+        "VarcharArray",
+        "VarcharArray",
+        "VarcharArray",
+        "Int8Array",
+        "Int8Array"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "f347db33d9888a9654a492709193ef42ba4cacece10acc0c37d1f35f8ae2a786"
+}

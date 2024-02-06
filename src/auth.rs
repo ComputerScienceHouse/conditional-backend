@@ -1,5 +1,6 @@
 use crate::app::AppState;
 use actix_web::{
+    body::{BoxBody, EitherBody},
     dev::{Service, ServiceRequest, ServiceResponse, Transform},
     web::Data,
     FromRequest, HttpMessage, HttpResponse,
@@ -8,6 +9,7 @@ use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose, Engine as _};
 use futures::{executor::block_on, future::LocalBoxFuture, lock::Mutex};
 use lazy_static::lazy_static;
+use log::{log, Level};
 use openssl::{
     bn::BigNum,
     hash::MessageDigest,
@@ -25,7 +27,9 @@ use std::{
 };
 
 lazy_static! {
-    static ref JWT_CACHE: Arc<Mutex<HashMap<String, PKey<Public>>>> =
+    static ref CSH_JWT_CACHE: Arc<Mutex<HashMap<String, PKey<Public>>>> =
+        Arc::new(Mutex::new(HashMap::new()));
+    static ref INTRO_JWT_CACHE: Arc<Mutex<HashMap<String, PKey<Public>>>> =
         Arc::new(Mutex::new(HashMap::new()));
 }
 
@@ -37,27 +41,51 @@ struct TokenHeader {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct User {
-    exp: u32,
-    iat: u32,
-    auth_time: u32,
-    jti: String,
-    iss: String,
-    aud: String,
-    sub: String,
-    typ: String,
-    azp: String,
-    nonce: String,
-    session_state: String,
-    scope: String,
-    sid: String,
-    email_verified: bool,
-    pub name: String,
-    pub groups: Vec<String>,
-    pub preferred_username: String,
-    pub given_name: String,
-    pub family_name: String,
-    pub email: String,
+#[serde(untagged)]
+pub enum User {
+    CshUser {
+        exp: u32,
+        iat: u32,
+        auth_time: u32,
+        jti: String,
+        iss: String,
+        aud: String,
+        sub: String,
+        typ: String,
+        azp: String,
+        nonce: String,
+        session_state: String,
+        scope: String,
+        sid: String,
+        email_verified: bool,
+        name: String,
+        groups: Vec<String>,
+        preferred_username: String,
+        given_name: String,
+        family_name: String,
+        uuid: String,
+        email: String,
+    },
+    IntroUser {
+        exp: u32,
+        iat: u32,
+        jti: String,
+        iss: String,
+        aud: String,
+        sub: String,
+        typ: String,
+        azp: String,
+        nonce: String,
+        session_state: String,
+        scope: String,
+        sid: String,
+        email_verified: bool,
+        name: String,
+        preferred_username: String,
+        given_name: String,
+        family_name: String,
+        email: String,
+    },
 }
 
 impl FromRequest for User {
@@ -69,6 +97,11 @@ impl FromRequest for User {
         _payload: &mut actix_web::dev::Payload,
     ) -> Self::Future {
         let unauthorized = || {
+            log!(
+                Level::Info,
+                "Unauthorized Request (from_request): {:?}",
+                req
+            );
             Box::pin(async {
                 <Result<Self, Self::Error>>::Err(actix_web::error::ErrorUnauthorized(""))
             })
@@ -99,17 +132,28 @@ impl FromRequest for User {
 }
 
 impl User {
-    fn admin(&self) -> bool {
-        self.groups.contains(&String::from("/eboard"))
-            || self.groups.contains(&String::from("/admins/rtp"))
+    pub fn admin(&self) -> bool {
+        match self {
+            User::CshUser { groups, .. } => {
+                groups.contains(&String::from("/eboard"))
+                    || groups.contains(&String::from("/admins/rtp"))
+            }
+            User::IntroUser { .. } => false,
+        }
     }
 
-    fn eboard(&self) -> bool {
-        self.groups.contains(&String::from("/eboard"))
+    pub fn eboard(&self) -> bool {
+        match self {
+            User::CshUser { groups, .. } => groups.contains(&String::from("/eboard")),
+            User::IntroUser { .. } => false,
+        }
     }
 
-    fn evals(&self) -> bool {
-        self.groups.contains(&String::from("/eboard/evals"))
+    pub fn evals(&self) -> bool {
+        match self {
+            User::CshUser { groups, .. } => groups.contains(&String::from("/eboard/evals")),
+            User::IntroUser { .. } => false,
+        }
     }
 }
 
@@ -117,12 +161,11 @@ impl User {
 pub struct CSHAuthService<S> {
     service: S,
     enabled: bool,
-    admin_only: bool,
-    eboard_only: bool,
-    evals_only: bool,
+    access_level: AccessLevel,
 }
 
 fn get_token_pieces(token: String) -> Result<(TokenHeader, String, User, String, Vec<u8>)> {
+    // log!(Level::Info, "{}", token);
     let mut it = token.split('.');
     let token_header_base64 = it.next().ok_or(anyhow!("!header"))?;
     let token_header = general_purpose::URL_SAFE_NO_PAD.decode(token_header_base64)?;
@@ -149,20 +192,33 @@ fn verify_token(
     payload_64: &String,
     key: &[u8],
 ) -> bool {
-    if payload.exp < (chrono::Utc::now().timestamp() as u32) {
+    let expiry = match payload {
+        User::CshUser { exp, .. } | User::IntroUser { exp, .. } => exp,
+    };
+    if expiry < &(chrono::Utc::now().timestamp() as u32) {
         return false;
     }
     if header.alg != "RS256" {
         return false;
     }
 
-    let data_cache = JWT_CACHE.clone();
+    let (data_cache, cert_url) = match payload {
+        User::CshUser { .. } => (
+            CSH_JWT_CACHE.clone(),
+            "https://sso.csh.rit.edu/auth/realms/csh/protocol/openid-connect/certs",
+        ),
+        User::IntroUser { .. } => (
+            INTRO_JWT_CACHE.clone(),
+            "https://sso.csh.rit.edu/auth/realms/intro/protocol/openid-connect/certs",
+        ),
+    };
+
     let cache = block_on(data_cache.lock());
     let pkey = match cache.get(header.kid.as_str()) {
         Some(x) => Some(x),
         None => {
-            let data_cache = JWT_CACHE.clone();
-            block_on(update_cache(data_cache.clone())).unwrap();
+            let data_cache = CSH_JWT_CACHE.clone();
+            block_on(update_cache(data_cache.clone(), cert_url)).unwrap();
             cache.get(header.kid.as_str())
         }
     };
@@ -172,23 +228,20 @@ fn verify_token(
         None => return false,
     };
 
-    let mut verifier = Verifier::new(MessageDigest::sha256(), &pkey).unwrap();
+    let mut verifier = Verifier::new(MessageDigest::sha256(), pkey).unwrap();
     verifier.update(header_64.as_bytes());
     verifier.update(b".");
     verifier.update(payload_64.as_bytes());
     verifier.verify(key).unwrap_or(false)
 }
 
-impl<S> Service<ServiceRequest> for CSHAuthService<S>
+impl<S, B> Service<ServiceRequest> for CSHAuthService<S>
 where
-    S: Service<
-        ServiceRequest,
-        Response = ServiceResponse<actix_web::body::BoxBody>,
-        Error = actix_web::Error,
-    >,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = actix_web::Error>,
     S::Future: 'static,
+    B: 'static,
 {
-    type Response = ServiceResponse<actix_web::body::BoxBody>;
+    type Response = ServiceResponse<EitherBody<B, BoxBody>>;
     type Error = actix_web::Error;
     type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
@@ -196,12 +249,24 @@ where
         self.service.poll_ready(ctx)
     }
 
-    #[allow(unused_must_use)]
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let _app_data: &Data<AppState> = req.app_data().unwrap();
+        let authorized = |req: ServiceRequest| -> Self::Future {
+            let future = self.service.call(req);
+            return Box::pin(async move {
+                let response = future.await?.map_into_left_body();
+                Ok(response)
+            });
+        };
+
         if self.enabled {
             let unauthorized = |req: ServiceRequest| -> Self::Future {
-                Box::pin(async { Ok(req.into_response(HttpResponse::Unauthorized().finish())) })
+                log!(Level::Info, "Unauthorized Request (call): {:?}", req);
+                Box::pin(async move {
+                    let chom = req
+                        .into_response(HttpResponse::Unauthorized().finish().map_into_right_body());
+                    Ok(chom)
+                })
             };
 
             let token = match req.headers().get("Authorization").map(|x| x.to_str()) {
@@ -217,6 +282,8 @@ where
                 token_signature,
             ) = get_token_pieces(token).unwrap();
 
+            // panic!("{:?}", token_payload);
+            // log!(Level::Info, "{:?}", token_payload);
             let verified = verify_token(
                 &token_header,
                 &token_header_base64,
@@ -231,38 +298,42 @@ where
                 return unauthorized(req);
             }
 
-            if self.admin_only && !token_payload.admin() {
+            if self.access_level == AccessLevel::Admin && !token_payload.admin() {
                 return unauthorized(req);
             }
 
-            if self.eboard_only && !token_payload.eboard() {
+            if self.access_level == AccessLevel::Eboard && !token_payload.eboard() {
                 return unauthorized(req);
             }
 
-            if self.evals_only && !token_payload.evals() {
+            if self.access_level == AccessLevel::Evals && !token_payload.evals() {
                 return unauthorized(req);
             }
 
-            let future = self.service.call(req);
-            return Box::pin(async move {
-                let response = future.await?;
-                Ok(response)
-            });
+            if self.access_level == AccessLevel::Freshman {
+                return unauthorized(req);
+            }
+
+            return authorized(req);
         }
-        let future = self.service.call(req);
-        Box::pin(async move {
-            let response = future.await?;
-            Ok(response)
-        })
+        return authorized(req);
     }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum AccessLevel {
+    Admin,
+    Eboard,
+    Evals,
+    Member,
+    Freshman,
+    Public,
 }
 
 #[derive(Clone, Debug)]
 pub struct CSHAuth {
     enabled: bool,
-    admin: bool,
-    eboard: bool,
-    evals: bool,
+    access_level: AccessLevel,
 }
 
 lazy_static! {
@@ -275,71 +346,56 @@ impl CSHAuth {
     pub fn admin_only() -> Self {
         Self {
             enabled: *SECURITY_ENABLED,
-            admin: true,
-            eboard: false,
-            evals: false,
+            access_level: AccessLevel::Admin,
         }
     }
 
     pub fn eboard_only() -> Self {
         Self {
             enabled: *SECURITY_ENABLED,
-            admin: false,
-            eboard: true,
-            evals: false,
+            access_level: AccessLevel::Eboard,
         }
     }
 
     pub fn evals_only() -> Self {
         Self {
             enabled: *SECURITY_ENABLED,
-            admin: false,
-            eboard: false,
-            evals: true,
+            access_level: AccessLevel::Evals,
         }
     }
 
     pub fn enabled() -> Self {
         Self {
             enabled: *SECURITY_ENABLED,
-            admin: false,
-            eboard: false,
-            evals: false,
+            access_level: AccessLevel::Member,
         }
     }
 
     pub fn disabled() -> Self {
         Self {
             enabled: false,
-            admin: false,
-            eboard: false,
-            evals: false,
+            access_level: AccessLevel::Public,
         }
     }
 }
 
-impl<S> Transform<S, ServiceRequest> for CSHAuth
+impl<S, B> Transform<S, ServiceRequest> for CSHAuth
 where
-    S: Service<
-        ServiceRequest,
-        Response = ServiceResponse<actix_web::body::BoxBody>,
-        Error = actix_web::Error,
-    >,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = actix_web::Error>,
     S::Future: 'static,
+    B: 'static,
 {
-    type Response = ServiceResponse<actix_web::body::BoxBody>;
+    type Response = ServiceResponse<EitherBody<B, BoxBody>>;
     type Error = actix_web::Error;
-    type Transform = CSHAuthService<S>;
     type InitError = ();
+    type Transform = CSHAuthService<S>;
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
         ready(Ok(CSHAuthService {
             service,
             enabled: self.enabled,
-            admin_only: self.admin,
-            eboard_only: self.eboard,
-            evals_only: self.evals,
+            access_level: self.access_level,
         }))
     }
 }
@@ -359,12 +415,11 @@ struct CertData {
     keys: Vec<CertKey>,
 }
 
-pub async fn update_cache(cache: Arc<Mutex<HashMap<String, PKey<Public>>>>) -> Result<()> {
-    let cert_data: CertData =
-        reqwest::get("https://sso.csh.rit.edu/auth/realms/csh/protocol/openid-connect/certs")
-            .await?
-            .json()
-            .await?;
+pub async fn update_cache(
+    cache: Arc<Mutex<HashMap<String, PKey<Public>>>>,
+    cert_url: &str,
+) -> Result<()> {
+    let cert_data: CertData = reqwest::get(cert_url).await?.json().await?;
 
     let mut cache = cache.lock().await;
     for key in cert_data.keys {

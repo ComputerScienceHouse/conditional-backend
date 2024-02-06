@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO freshman_accounts (name, eval_date, onfloor_status, room_number, signatures_missed, rit_username)\n        VALUES ($1::varchar, $2::date, $3, $4::varchar, null, $5::varchar) RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Date",
+        "Bool",
+        "Varchar",
+        "Varchar"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "4852de3c646fcc100cde90a5d6db844b93b8c74ec733626c64653c33ab9bbf25"
+}

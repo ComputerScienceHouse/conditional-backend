@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO member_batch_pulls(uid, approved) VALUES ($1, true)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f412ab6ede56d38b9b5bf931173c2b65a735099bd2e0d6609c359d1fcd5c9f5d"
+}

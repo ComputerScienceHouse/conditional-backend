@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO freshman_committee_attendance (fid, meeting_id)\n                SELECT fid, meeting_id\n                FROM UNNEST($1::int4[], $2::int4[]) AS a(fid, meeting_id)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4Array",
+        "Int4Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "990a49b49d9855d0c39fbf809f94758eef4f862a26b594385101cdd9f79d9ab4"
+}

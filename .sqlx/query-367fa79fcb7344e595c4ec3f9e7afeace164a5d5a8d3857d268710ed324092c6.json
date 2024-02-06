@@ -1,0 +1,67 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT status.fid,\n                    packet.name as \"name!\",\n                    NULL as uid,\n                    status.seminars as \"seminars!\",\n                    status.directorships as \"directorships!\",\n                    status.missed_hms as \"missed_hms!\",\n                    packet.signatures as \"signatures!\",\n                    packet.max_signatures as \"max_signatures!\"\n                FROM (SELECT sd.username,\n                        sd.fid,\n                        sd.seminars,\n                        sd.directorships,\n                        count(fha.attendance_status)\n                            FILTER(WHERE fha.attendance_status = 'Absent') AS missed_hms\n                    FROM (SELECT s.username,\n                                 s.fid,\n                                 s.seminars,\n                                 count(cm.approved)\n                                    FILTER(WHERE cm.approved) AS directorships\n                          FROM (SELECT fa.rit_username as username,\n                                       fa.id AS fid,\n                                       count(ts.approved)\n                                           FILTER(WHERE ts.approved) AS seminars\n                                FROM freshman_accounts fa\n                                LEFT JOIN freshman_seminar_attendance fsa ON\n                                    fa.id = fsa.fid\n                                LEFT JOIN technical_seminars ts ON\n                                    fsa.seminar_id = ts.id\n                                GROUP BY fa.rit_username, fa.id) AS s\n                          LEFT JOIN freshman_committee_attendance fca ON\n                              s.fid = fca.fid\n                          LEFT JOIN committee_meetings cm ON\n                              fca.meeting_id = cm.id\n                          GROUP BY s.username, s.fid, s.seminars) AS sd\n                    LEFT JOIN freshman_hm_attendance fha ON\n                        sd.fid = fha.fid\n                    GROUP BY sd.username,\n                             sd.fid,\n                             sd.seminars,\n                             sd.directorships) AS status\n\n                    LEFT JOIN UNNEST($1::varchar[], $2::varchar[], $3::int8[], $4::int8[]) AS packet(username, name, signatures, max_signatures) ON\n                        packet.username = status.username\n                    WHERE packet.name IS NOT NULL\n                        AND status.seminars IS NOT NULL\n                        AND status.directorships IS NOT NULL\n                        AND status.missed_hms IS NOT NULL\n                        AND packet.signatures IS NOT NULL\n                        AND packet.max_signatures IS NOT NULL\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "fid",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "name!",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "uid",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "seminars!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "directorships!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "missed_hms!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "signatures!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "max_signatures!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "VarcharArray",
+        "VarcharArray",
+        "Int8Array",
+        "Int8Array"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "367fa79fcb7344e595c4ec3f9e7afeace164a5d5a8d3857d268710ed324092c6"
+}
