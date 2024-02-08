@@ -2,12 +2,11 @@ use crate::app::AppState;
 use actix_web::{
     body::{BoxBody, EitherBody},
     dev::{Service, ServiceRequest, ServiceResponse, Transform},
-    web::Data,
     FromRequest, HttpMessage, HttpResponse,
 };
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose, Engine as _};
-use futures::{executor::block_on, future::LocalBoxFuture, lock::Mutex};
+use futures::{future::LocalBoxFuture, FutureExt};
 use lazy_static::lazy_static;
 use log::{log, Level};
 use openssl::{
@@ -17,14 +16,16 @@ use openssl::{
     rsa::Rsa,
     sign::Verifier,
 };
+use reqwest::IntoUrl;
 use serde::{Deserialize, Serialize};
-use std::env;
 use std::{
     collections::HashMap,
     future::{ready, Ready},
+    rc::Rc,
     sync::Arc,
     task::{Context, Poll},
 };
+use std::{env, sync::Mutex};
 
 lazy_static! {
     static ref CSH_JWT_CACHE: Arc<Mutex<HashMap<String, PKey<Public>>>> =
@@ -96,38 +97,47 @@ impl FromRequest for User {
         req: &actix_web::HttpRequest,
         _payload: &mut actix_web::dev::Payload,
     ) -> Self::Future {
-        let unauthorized = || {
-            log!(
-                Level::Info,
-                "Unauthorized Request (from_request): {:?}",
-                req
-            );
-            Box::pin(async {
-                <Result<Self, Self::Error>>::Err(actix_web::error::ErrorUnauthorized(""))
-            })
+        let user = match req.extensions().get::<User>().cloned() {
+            Some(u) => Ok(u),
+            None => {
+                log!(Level::Info, "chom");
+                Err(actix_web::error::ErrorUnauthorized(""))
+            }
         };
+        Box::pin(ready(user))
+        // let unauthorized = |err: &str| {
+        //     log!(
+        //         Level::Info,
+        //         "Unauthorized Request (from_request): {:?}",
+        //         req
+        //     );
+        //     log!(Level::Error, "{:?}", err);
+        //     Box::pin(async {
+        //         <Result<Self, Self::Error>>::Err(actix_web::error::ErrorUnauthorized(""))
+        //     })
+        // };
 
-        let h = match req.headers().get("Authorization").map(|h| {
-            h.to_str()
-                .unwrap_or("")
-                .to_string()
-                .trim_start_matches("Bearer ")
-                .to_string()
-        }) {
-            Some(h) => h,
-            None => return unauthorized(),
-        };
+        // let h = match req.headers().get("Authorization").map(|h| {
+        //     h.to_str()
+        //         .unwrap_or("")
+        //         .to_string()
+        //         .trim_start_matches("Bearer ")
+        //         .to_string()
+        // }) {
+        //     Some(h) => h,
+        //     None => return unauthorized("no auth header?"),
+        // };
 
-        let (head, head_64, user, user_64, sig) = match get_token_pieces(h) {
-            Ok(vals) => vals,
-            Err(_) => return unauthorized(),
-        };
+        // let (head, head_64, user, user_64, sig) = match get_token_pieces(h) {
+        //     Ok(vals) => vals,
+        //     Err(_) => return unauthorized("cant get token pieces"),
+        // };
 
-        if verify_token(&head, &head_64, &user, &user_64, &sig) {
-            Box::pin(async { Ok(user) })
-        } else {
-            unauthorized()
-        }
+        // if verify_token(&head, &head_64, &user, &user_64, &sig) {
+        //     Box::pin(async { Ok(user) })
+        // } else {
+        //     unauthorized("couldn't verify token")
+        // }
     }
 }
 
@@ -155,11 +165,24 @@ impl User {
             User::IntroUser { .. } => false,
         }
     }
+
+    fn get_cache_info(&self) -> (Arc<Mutex<HashMap<String, PKey<Public>>>>, &str) {
+        match self {
+            User::CshUser { .. } => (
+                CSH_JWT_CACHE.clone(),
+                "https://sso.csh.rit.edu/auth/realms/csh/protocol/openid-connect/certs",
+            ),
+            User::IntroUser { .. } => (
+                INTRO_JWT_CACHE.clone(),
+                "https://sso.csh.rit.edu/auth/realms/intro/protocol/openid-connect/certs",
+            ),
+        }
+    }
 }
 
 #[doc(hidden)]
 pub struct CSHAuthService<S> {
-    service: S,
+    service: Rc<S>,
     enabled: bool,
     access_level: AccessLevel,
 }
@@ -184,8 +207,54 @@ fn get_token_pieces(token: String) -> Result<(TokenHeader, String, User, String,
     ))
 }
 
-#[allow(unused_must_use)]
-fn verify_token(
+async fn authorize(token: String, access_level: AccessLevel) -> Result<User, actix_web::Error> {
+    let (token_header, token_header_base64, token_payload, token_payload_base64, token_signature) =
+        get_token_pieces(token).unwrap();
+
+    let verified = verify_token(
+        &token_header,
+        &token_header_base64,
+        &token_payload,
+        &token_payload_base64,
+        &token_signature,
+    )
+    .await;
+    log!(Level::Info, "got verified");
+
+    let unauthorized_err = Err(actix_web::error::ErrorUnauthorized(""));
+
+    if !verified {
+        return unauthorized_err;
+    }
+    log!(Level::Info, "valid token");
+
+    match token_payload {
+        User::CshUser { .. } => {
+            if access_level == AccessLevel::Admin && !token_payload.admin() {
+                return unauthorized_err;
+            }
+            if access_level == AccessLevel::Eboard && !token_payload.eboard() {
+                return unauthorized_err;
+            }
+            if access_level == AccessLevel::Evals && !token_payload.evals() {
+                return unauthorized_err;
+            }
+            if access_level == AccessLevel::IntroOnly {
+                return unauthorized_err;
+            }
+            return Ok(token_payload);
+        }
+        User::IntroUser { .. } => match access_level {
+            AccessLevel::MemberAndIntro | AccessLevel::IntroOnly | AccessLevel::Public => {
+                return Ok(token_payload);
+            }
+            _ => return unauthorized_err,
+        },
+    }
+}
+
+// #[allow(unused_must_use)]
+async fn verify_token(
     header: &TokenHeader,
     header_64: &String,
     payload: &User,
@@ -202,26 +271,17 @@ fn verify_token(
         return false;
     }
 
-    let (data_cache, cert_url) = match payload {
-        User::CshUser { .. } => (
-            CSH_JWT_CACHE.clone(),
-            "https://sso.csh.rit.edu/auth/realms/csh/protocol/openid-connect/certs",
-        ),
-        User::IntroUser { .. } => (
-            INTRO_JWT_CACHE.clone(),
-            "https://sso.csh.rit.edu/auth/realms/intro/protocol/openid-connect/certs",
-        ),
-    };
+    let (data_cache, cert_url) = payload.get_cache_info();
 
-    let cache = block_on(data_cache.lock());
-    let pkey = match cache.get(header.kid.as_str()) {
+    let mut cache = data_cache.lock().unwrap();
+    let pkey = match cache.get(header.kid.as_str()).clone() {
         Some(x) => Some(x),
         None => {
-            let data_cache = CSH_JWT_CACHE.clone();
-            block_on(update_cache(data_cache.clone(), cert_url)).unwrap();
-            cache.get(header.kid.as_str())
+            update_cache(&mut cache, cert_url).await.unwrap();
+            cache.get(header.kid.as_str()).clone()
         }
     };
+    log!(Level::Info, "got pkey {:?}", pkey);
 
     let pkey = match pkey {
         Some(p) => p,
@@ -229,15 +289,15 @@ fn verify_token(
     };
 
     let mut verifier = Verifier::new(MessageDigest::sha256(), pkey).unwrap();
-    verifier.update(header_64.as_bytes());
-    verifier.update(b".");
-    verifier.update(payload_64.as_bytes());
+    verifier.update(header_64.as_bytes()).unwrap();
+    verifier.update(b".").unwrap();
+    verifier.update(payload_64.as_bytes()).unwrap();
     verifier.verify(key).unwrap_or(false)
 }
 
 impl<S, B> Service<ServiceRequest> for CSHAuthService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = actix_web::Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = actix_web::Error> + 'static,
     S::Future: 'static,
     B: 'static,
 {
@@ -250,73 +310,42 @@ where
     }
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        let _app_data: &Data<AppState> = req.app_data().unwrap();
-        let authorized = |req: ServiceRequest| -> Self::Future {
-            let future = self.service.call(req);
-            return Box::pin(async move {
-                let response = future.await?.map_into_left_body();
-                Ok(response)
-            });
-        };
+        let srv = self.service.clone();
+        let enabled = self.enabled.clone();
+        let access_level = self.access_level.clone();
 
-        if self.enabled {
-            let unauthorized = |req: ServiceRequest| -> Self::Future {
-                log!(Level::Info, "Unauthorized Request (call): {:?}", req);
-                Box::pin(async move {
-                    let chom = req
-                        .into_response(HttpResponse::Unauthorized().finish().map_into_right_body());
-                    Ok(chom)
-                })
-            };
+        Box::pin(async move {
+            if enabled {
+                let token = match req.headers().get("Authorization").map(|x| x.to_str()) {
+                    Some(Ok(x)) => x.trim_start_matches("Bearer ").to_string(),
+                    _ => {
+                        log!(Level::Info, "unauthed a");
+                        let response = req.into_response(
+                            HttpResponse::Unauthorized().finish().map_into_right_body(),
+                        );
+                        return Ok(response);
+                    }
+                };
 
-            let token = match req.headers().get("Authorization").map(|x| x.to_str()) {
-                Some(Ok(x)) => x.trim_start_matches("Bearer ").to_string(),
-                _ => return unauthorized(req),
-            };
-
-            let (
-                token_header,
-                token_header_base64,
-                token_payload,
-                token_payload_base64,
-                token_signature,
-            ) = get_token_pieces(token).unwrap();
-
-            // panic!("{:?}", token_payload);
-            // log!(Level::Info, "{:?}", token_payload);
-            let verified = verify_token(
-                &token_header,
-                &token_header_base64,
-                &token_payload,
-                &token_payload_base64,
-                &token_signature,
-            );
-
-            if verified {
-                req.extensions_mut().insert(token_payload.clone());
-            } else {
-                return unauthorized(req);
+                log!(Level::Info, "checking auth");
+                match authorize(token, access_level).await {
+                    Ok(user) => {
+                        log!(Level::Info, "inserting user");
+                        req.extensions_mut().insert::<User>(user);
+                    }
+                    Err(_) => {
+                        log!(Level::Info, "unauthed b");
+                        let response = req.into_response(
+                            HttpResponse::Unauthorized().finish().map_into_right_body(),
+                        );
+                        return Ok(response);
+                    }
+                }
             }
-
-            if self.access_level == AccessLevel::Admin && !token_payload.admin() {
-                return unauthorized(req);
-            }
-
-            if self.access_level == AccessLevel::Eboard && !token_payload.eboard() {
-                return unauthorized(req);
-            }
-
-            if self.access_level == AccessLevel::Evals && !token_payload.evals() {
-                return unauthorized(req);
-            }
-
-            if self.access_level == AccessLevel::Freshman {
-                return unauthorized(req);
-            }
-
-            return authorized(req);
-        }
-        return authorized(req);
+            let future = srv.call(req);
+            let response = future.await?.map_into_left_body();
+            Ok(response)
+        })
     }
 }
 
@@ -325,8 +354,9 @@ pub enum AccessLevel {
     Admin,
     Eboard,
     Evals,
-    Member,
-    Freshman,
+    MemberOnly,
+    MemberAndIntro,
+    IntroOnly,
     Public,
 }
 
@@ -364,10 +394,16 @@ impl CSHAuth {
         }
     }
 
+    pub fn member_and_intro() -> Self {
+        Self {
+            enabled: *SECURITY_ENABLED,
+            access_level: AccessLevel::MemberAndIntro,
+        }
+    }
     pub fn enabled() -> Self {
         Self {
             enabled: *SECURITY_ENABLED,
-            access_level: AccessLevel::Member,
+            access_level: AccessLevel::MemberAndIntro,
         }
     }
 
@@ -379,7 +415,7 @@ impl CSHAuth {
     }
 }
 
-impl<S, B> Transform<S, ServiceRequest> for CSHAuth
+impl<S: 'static, B> Transform<S, ServiceRequest> for CSHAuth
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = actix_web::Error>,
     S::Future: 'static,
@@ -393,7 +429,7 @@ where
 
     fn new_transform(&self, service: S) -> Self::Future {
         ready(Ok(CSHAuthService {
-            service,
+            service: Rc::new(service),
             enabled: self.enabled,
             access_level: self.access_level,
         }))
@@ -415,13 +451,16 @@ struct CertData {
     keys: Vec<CertKey>,
 }
 
-pub async fn update_cache(
-    cache: Arc<Mutex<HashMap<String, PKey<Public>>>>,
-    cert_url: &str,
-) -> Result<()> {
+pub async fn update_cache<T>(cache: &mut HashMap<String, PKey<Public>>, cert_url: T) -> Result<()>
+where
+    T: IntoUrl,
+{
+    // let (cache, cert_url) = user.get_cache_info();
+    log!(Level::Info, "Update cache start");
     let cert_data: CertData = reqwest::get(cert_url).await?.json().await?;
-
-    let mut cache = cache.lock().await;
+    log!(Level::Info, "Update cache finished request");
+    // let mut cache = cache.lock().unwrap();
+    log!(Level::Info, "got cache");
     for key in cert_data.keys {
         if cache.contains_key(key.kid.as_str()) {
             continue;
@@ -441,5 +480,6 @@ pub async fn update_cache(
         let rsa = Rsa::from_public_components(n, e)?;
         cache.insert(key.kid, PKey::from_rsa(rsa)?);
     }
+    log!(Level::Info, "Finished updating cache");
     Ok(())
 }
