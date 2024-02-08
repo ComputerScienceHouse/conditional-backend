@@ -1,6 +1,6 @@
 use crate::api::{log_query, log_query_as, open_transaction};
 use crate::app::AppState;
-use crate::auth::CSHAuth;
+use crate::auth::{CSHAuth, User};
 use crate::schema::api::*;
 use crate::schema::db::CommitteeType;
 
@@ -171,6 +171,7 @@ pub async fn submit_directorship_attendance(
 pub async fn get_directorships_by_user(
     path: Path<(String,)>,
     state: Data<AppState>,
+    user: User,
 ) -> impl Responder {
     let (user,) = path.into_inner();
     if user.chars().next().unwrap().is_numeric() {
