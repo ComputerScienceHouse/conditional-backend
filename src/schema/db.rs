@@ -41,7 +41,8 @@ pub struct OtherMeeting {
 pub struct User {
     pub id: i32,
     pub name: String,
-    pub uuid: String,
+    pub intro_id: Option<String>,
+    pub ipa_unique_id: Option<String>,
     pub rit_username: String,
     pub csh_username: Option<String>,
     pub is_csh: bool,

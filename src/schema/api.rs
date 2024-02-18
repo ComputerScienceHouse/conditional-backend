@@ -7,6 +7,7 @@
 use chrono::{NaiveDate, NaiveDateTime};
 use derive_more::{Deref, Display};
 use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
 use utoipa::ToSchema;
 
 use super::db::{
@@ -21,7 +22,7 @@ pub struct EvalsHmAtt {
     pub date: NaiveDate,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+#[derive(FromRow, Serialize, Deserialize, Clone, Debug, ToSchema, PartialEq, Eq)]
 pub struct User {
     /// User ID of the member
     pub uid: i32,
@@ -97,7 +98,7 @@ pub struct Seminar {
     pub approved: bool,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema, sqlx::FromRow)]
 pub struct Meeting {
     /// ID of the meeting
     pub id: i32,
@@ -106,11 +107,17 @@ pub struct Meeting {
     /// Date the meeting occured
     pub timestamp: chrono::NaiveDateTime,
     /// Name of the meeting
-    pub members: String,
+    pub name: String,
     /// If the meeting has been approved
     pub approved: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema, sqlx::FromRow)]
+pub struct MeetingAttendance {
+    /// Meeting the attendance is associated with
+    pub meeting: Meeting,
     /// List of [Users](User) that attended
-    pub atendees: Vec<User>,
+    pub attendees: Vec<User>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]

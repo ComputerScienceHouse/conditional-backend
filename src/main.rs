@@ -1,10 +1,7 @@
 use actix_cors::Cors;
 use actix_web::http::header;
 use actix_web::{middleware::Logger, App, HttpServer};
-use conditional_backend::{
-    app::{configure_app, get_app_data},
-    auth::CSHAuth,
-};
+use conditional_backend::app::{configure_app, get_app_data};
 use dotenv::dotenv;
 use lazy_static::lazy_static;
 use log::{log, Level};
@@ -55,7 +52,6 @@ async fn main() -> std::io::Result<()> {
             .wrap(Logger::new(
                 "%a \"%r\" %s %b \"%{Referer}i\" \"%{User-Agent}i\" %T",
             ))
-            .wrap(CSHAuth::new())
             .configure(configure_app)
             .app_data(app_data.clone())
     })

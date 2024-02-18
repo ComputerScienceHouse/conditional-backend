@@ -1,4 +1,3 @@
-use crate::app::AppState;
 use actix_web::{
     body::{BoxBody, EitherBody},
     dev::{Service, ServiceRequest, ServiceResponse, Transform},
@@ -6,7 +5,7 @@ use actix_web::{
 };
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose, Engine as _};
-use futures::{future::LocalBoxFuture, FutureExt};
+use futures::future::LocalBoxFuture;
 use lazy_static::lazy_static;
 use log::{log, Level};
 use openssl::{
@@ -27,6 +26,8 @@ use std::{
 };
 use std::{env, sync::Mutex};
 
+use crate::ldap::user;
+
 lazy_static! {
     static ref CSH_JWT_CACHE: Arc<Mutex<HashMap<String, PKey<Public>>>> =
         Arc::new(Mutex::new(HashMap::new()));
@@ -42,52 +43,45 @@ struct TokenHeader {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
+pub struct UserBase {
+    exp: u32,
+    iat: u32,
+    jti: String,
+    aud: String,
+    pub sub: String,
+    typ: String,
+    azp: String,
+    auth_time: Option<String>,
+    nonce: String,
+    session_state: String,
+    scope: String,
+    sid: String,
+    email_verified: bool,
+    pub name: String,
+    pub preferred_username: String,
+    pub given_name: String,
+    pub family_name: String,
+    pub email: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "iss")]
 pub enum User {
+    #[serde(rename = "https://sso.csh.rit.edu/auth/realms/csh")]
     CshUser {
-        exp: u32,
-        iat: u32,
-        auth_time: u32,
-        jti: String,
-        iss: String,
-        aud: String,
-        sub: String,
-        typ: String,
-        azp: String,
-        nonce: String,
-        session_state: String,
-        scope: String,
-        sid: String,
-        email_verified: bool,
-        name: String,
+        #[serde(flatten)]
+        user: UserBase,
         groups: Vec<String>,
-        preferred_username: String,
-        given_name: String,
-        family_name: String,
         uuid: String,
-        email: String,
     },
+    #[serde(rename = "https://sso.csh.rit.edu/auth/realms/intro")]
     IntroUser {
-        exp: u32,
-        iat: u32,
-        jti: String,
-        iss: String,
-        aud: String,
-        sub: String,
-        typ: String,
-        azp: String,
-        nonce: String,
-        session_state: String,
-        scope: String,
-        sid: String,
-        email_verified: bool,
-        name: String,
-        preferred_username: String,
-        given_name: String,
-        family_name: String,
-        email: String,
+        #[serde(flatten)]
+        user: UserBase,
     },
 }
+
+pub type UserInfo = User;
 
 impl FromRequest for User {
     type Error = actix_web::error::Error;
@@ -105,39 +99,6 @@ impl FromRequest for User {
             }
         };
         Box::pin(ready(user))
-        // let unauthorized = |err: &str| {
-        //     log!(
-        //         Level::Info,
-        //         "Unauthorized Request (from_request): {:?}",
-        //         req
-        //     );
-        //     log!(Level::Error, "{:?}", err);
-        //     Box::pin(async {
-        //         <Result<Self, Self::Error>>::Err(actix_web::error::ErrorUnauthorized(""))
-        //     })
-        // };
-
-        // let h = match req.headers().get("Authorization").map(|h| {
-        //     h.to_str()
-        //         .unwrap_or("")
-        //         .to_string()
-        //         .trim_start_matches("Bearer ")
-        //         .to_string()
-        // }) {
-        //     Some(h) => h,
-        //     None => return unauthorized("no auth header?"),
-        // };
-
-        // let (head, head_64, user, user_64, sig) = match get_token_pieces(h) {
-        //     Ok(vals) => vals,
-        //     Err(_) => return unauthorized("cant get token pieces"),
-        // };
-
-        // if verify_token(&head, &head_64, &user, &user_64, &sig) {
-        //     Box::pin(async { Ok(user) })
-        // } else {
-        //     unauthorized("couldn't verify token")
-        // }
     }
 }
 
@@ -145,8 +106,9 @@ impl User {
     pub fn admin(&self) -> bool {
         match self {
             User::CshUser { groups, .. } => {
-                groups.contains(&String::from("/eboard"))
-                    || groups.contains(&String::from("/admins/rtp"))
+                groups.contains(&String::from("eboard"))
+                    || groups.contains(&String::from("admins"))
+                    || groups.contains(&String::from("rtp"))
             }
             User::IntroUser { .. } => false,
         }
@@ -154,14 +116,17 @@ impl User {
 
     pub fn eboard(&self) -> bool {
         match self {
-            User::CshUser { groups, .. } => groups.contains(&String::from("/eboard")),
+            User::CshUser { groups, .. } => {
+                log!(Level::Info, "{:?}", groups);
+                groups.contains(&String::from("eboard"))
+            }
             User::IntroUser { .. } => false,
         }
     }
 
     pub fn evals(&self) -> bool {
         match self {
-            User::CshUser { groups, .. } => groups.contains(&String::from("/eboard/evals")),
+            User::CshUser { groups, .. } => groups.contains(&String::from("eboard-evaluations")),
             User::IntroUser { .. } => false,
         }
     }
@@ -211,6 +176,12 @@ async fn authorize(token: String, access_level: AccessLevel) -> Result<User, act
     let (token_header, token_header_base64, token_payload, token_payload_base64, token_signature) =
         get_token_pieces(token).unwrap();
 
+    match token_payload {
+        User::CshUser { .. } => log!(Level::Info, "CSH user"),
+        User::IntroUser { .. } => log!(Level::Info, "INTRO user"),
+    }
+    let unauthorized_err = Err(actix_web::error::ErrorUnauthorized(""));
+
     let verified = verify_token(
         &token_header,
         &token_header_base64,
@@ -219,9 +190,6 @@ async fn authorize(token: String, access_level: AccessLevel) -> Result<User, act
         &token_signature,
     )
     .await;
-    log!(Level::Info, "got verified");
-
-    let unauthorized_err = Err(actix_web::error::ErrorUnauthorized(""));
 
     if !verified {
         return unauthorized_err;
@@ -262,14 +230,17 @@ async fn verify_token(
     key: &[u8],
 ) -> bool {
     let expiry = match payload {
-        User::CshUser { exp, .. } | User::IntroUser { exp, .. } => exp,
+        User::CshUser { user, .. } | User::IntroUser { user, .. } => user.exp,
     };
-    if expiry < &(chrono::Utc::now().timestamp() as u32) {
+    if expiry < chrono::Utc::now().timestamp() as u32 {
+        log!(Level::Info, "expired token");
         return false;
     }
     if header.alg != "RS256" {
+        log!(Level::Info, "wrong alg");
         return false;
     }
+    log!(Level::Info, "unexpired and valid alg");
 
     let (data_cache, cert_url) = payload.get_cache_info();
 
@@ -391,6 +362,13 @@ impl CSHAuth {
         Self {
             enabled: *SECURITY_ENABLED,
             access_level: AccessLevel::Evals,
+        }
+    }
+
+    pub fn member_only() -> Self {
+        Self {
+            enabled: *SECURITY_ENABLED,
+            access_level: AccessLevel::MemberOnly,
         }
     }
 
