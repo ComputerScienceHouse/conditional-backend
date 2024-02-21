@@ -52,7 +52,6 @@ pub struct UserBase {
     pub sub: String,
     typ: String,
     azp: String,
-    auth_time: Option<String>,
     nonce: String,
     session_state: String,
     scope: String,
