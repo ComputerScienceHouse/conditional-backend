@@ -11,7 +11,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::{query, query_as, Pool, Postgres};
 use utoipa::ToSchema;
 
-/// Get the latest intro form related to the user during the current evaluation block
+/// Get the latest intro form related to the user during the current evaluation
+/// block
 async fn get_intro_form(
     db: &Pool<Postgres>,
     user: &UserInfo,

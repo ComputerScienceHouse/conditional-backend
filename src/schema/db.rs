@@ -80,6 +80,23 @@ pub struct HouseMeeting {
 }
 
 #[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Copy, ToSchema)]
+struct Absences {
+    uid: i32,
+    count: Option<i64>,
+}
+
+#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Copy, ToSchema)]
+struct DateWrapper {
+    date: chrono::NaiveDate,
+}
+
+#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, ToSchema)]
+struct AbsenceWrapper {
+    date: chrono::NaiveDate,
+    excuse: Option<String>,
+}
+
+#[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Copy, ToSchema)]
 #[sqlx(type_name = "hm_attendance_status_enum")]
 pub enum AttendanceStatus {
     Attended,

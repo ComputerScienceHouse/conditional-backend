@@ -16,7 +16,9 @@ pub async fn get_active_upperclassmen(client: &LdapClient) -> Result<Vec<LdapUse
     let res = ldap_search(
         client,
         "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
-        "(&(memberOf=*active*)(!(memberOf=*intromember*)))".to_string().as_str(),
+        "(&(memberOf=*active*)(!(memberOf=*intromember*)))"
+            .to_string()
+            .as_str(),
         None,
     )
     .await?;
@@ -38,6 +40,27 @@ pub async fn get_group_members(
         client,
         "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
         format!("memberOf=*{}*", group).as_str(),
+        None,
+    )
+    .await?;
+
+    Ok(res
+        .iter()
+        .map(|r| {
+            let user = SearchEntry::construct(r.to_owned());
+            LdapUser::from_entry(&user)
+        })
+        .collect())
+}
+
+pub async fn get_group_members_exact(
+    client: &LdapClient,
+    group: &str,
+) -> Result<Vec<LdapUser>, anyhow::Error> {
+    let res = ldap_search(
+        client,
+        "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
+        format!("memberOf={}", group).as_str(),
         None,
     )
     .await?;

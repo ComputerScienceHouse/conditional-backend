@@ -1,184 +1,248 @@
 use actix_web::{
     get, post, put,
-    web::{Data, Json, Path},
+    web::{Data, Json},
     HttpResponse, Responder,
 };
-use chrono::NaiveDate;
-use log::{log, Level};
+use chrono::{Datelike, NaiveDate, Utc};
+use serde::Serialize;
 use sqlx::{query, query_as};
 
 use crate::{
-    api::{log_query, log_query_as, open_transaction},
-    app::AppState,
-    schema::{api::*, db::AttendanceStatus},
+    api::lib::{open_transaction, UserError}, app::AppState, auth::{CSHAuth, UserInfo}, ldap::get_group_members_exact, schema::{
+        api::*,
+        db::{AttendanceStatus, ID},
+    }
 };
 
-#[utoipa::path(context_path="/attendance", responses((status = 200, description = "Submit new house meeting attendance"),(status = 500, description = "Error created by Query"),))]
-#[post("/house")]
+#[derive(sqlx::Type, Serialize)]
+struct Absences {
+    uid: i32,
+    count: Option<i64>,
+}
+
+#[derive(sqlx::Type, Serialize)]
+struct DateWrapper {
+    date: NaiveDate,
+}
+
+#[derive(sqlx::Type, Serialize)]
+struct AbsenceWrapper {
+    date: NaiveDate,
+    excuse: Option<String>,
+}
+
+#[utoipa::path(
+    context_path = "/api/attendance",
+    tag = "Attendance",
+    request_body = HouseAttendance,
+    responses(
+        (status = 200, description = "Success"),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error"),
+    ),
+    security(
+        ("csh" = ["eboard"]),
+    )
+)]
+#[post("/house", wrap = "CSHAuth::evals_only()")]
 pub async fn submit_hm_attendance(
     state: Data<AppState>,
     body: Json<HouseAttendance>,
-) -> impl Responder {
-    log!(Level::Info, "POST /attendance/house");
-    let mut transaction = match open_transaction(&state.db).await {
-        Ok(t) => t,
-        Err(res) => return res,
-    };
+) -> Result<impl Responder, UserError> {
+    let mut transaction = open_transaction(&state.db).await?;
 
-    let id: i32;
-    match log_query_as(
-        query_as!(
-            ID,
-            "INSERT INTO house_meetings(date, active) VALUES ($1, true) RETURNING id",
-            body.date
-        )
-        .fetch_all(&state.db)
-        .await,
-        Some(transaction),
+    let id = query_as!(
+        ID,
+        "INSERT INTO house_meeting(date) VALUES ($1) RETURNING id",
+        body.date
     )
-    .await
-    {
-        Ok((tx, i)) => {
-            transaction = tx.unwrap();
-            id = i[0].id;
-        }
-        Err(res) => return res,
-    }
-    log!(Level::Trace, "created new house meeting");
+    .fetch_one(&mut *transaction)
+    .await?;
 
-    let frosh_id = vec![id; body.frosh.len()];
-    let member_id = vec![id; body.members.len()];
-    let frosh_names: Vec<i32> = body.frosh.iter().map(|a| a.fid).collect();
-    let frosh_statuses: Vec<AttendanceStatus> = body.frosh.iter().map(|a| a.att_status).collect();
-    let member_names: Vec<i32> = body.frosh.iter().map(|a| a.fid).collect();
-    let member_statuses: Vec<AttendanceStatus> = body.frosh.iter().map(|a| a.att_status).collect();
+    let id_vec = vec![id.id; body.attendees.len()];
+    let names: Vec<i32> = body.attendees.iter().map(|a| a.uid).collect();
+    let statuses: Vec<AttendanceStatus> = body.attendees.iter().map(|a| a.att_status).collect();
 
-    match log_query(
-        query!("INSERT INTO freshman_hm_attendance (fid, meeting_id, attendance_status) SELECT fid, meeting_id, attendance_status as \"attendance_status: AttendanceStatus\" FROM UNNEST($1::int4[], $2::int4[], $3::attendance_enum[]) as a(fid, meeting_id, attendance_status)", frosh_names.as_slice(), frosh_id.as_slice(), frosh_statuses.as_slice() as &[AttendanceStatus])
-        .execute(&state.db).await.map(|_| ()), Some(transaction)).await {
-        Ok(tx) => transaction = tx.unwrap(),
-        Err(res) => return res,
-    }
-
-    match log_query(
-        query!("INSERT INTO member_hm_attendance (uid, meeting_id, attendance_status) SELECT uid, meeting_id, attendance_status as \"attendance_status: AttendanceStatus\" FROM UNNEST($1::int4[], $2::int4[], $3::attendance_enum[]) as a(uid, meeting_id, attendance_status)", member_names.as_slice(), member_id.as_slice(), member_statuses.as_slice() as &[AttendanceStatus])
-        .execute(&state.db).await.map(|_| ()), Some(transaction)).await {
-        Ok(tx) => transaction = tx.unwrap(),
-        Err(res) => return res,
-    }
-    log!(Level::Trace, "added attendance to house meeting");
+    query!(
+        "INSERT INTO hm_attendance (uid, house_meeting_id, attendance_status) SELECT uid, \
+         house_meeting_id, attendance_status as \"attendance_status: AttendanceStatus\" FROM \
+         UNNEST($1::int4[], $2::int4[], $3::hm_attendance_status_enum[]) as a(uid, \
+         house_meeting_id, attendance_status)",
+        names.as_slice(),
+        id_vec.as_slice(),
+        statuses.as_slice() as &[AttendanceStatus]
+    )
+    .execute(&mut *transaction)
+    .await?;
 
     // Commit transaction
-    match transaction.commit().await {
-        Ok(_) => HttpResponse::Ok().body(""),
-        Err(e) => {
-            log!(Level::Error, "Transaction failed to commit");
-            HttpResponse::InternalServerError().body(e.to_string())
-        }
-    }
+    transaction.commit().await?;
+    Ok(HttpResponse::Ok().finish())
 }
 
-#[utoipa::path(context_path="/attendance", responses((status = 200, description = "Get house meetings missed for a given user", body = [NaiveDate]),(status = 400, description = "Invalid user"),(status = 500, description = "Error created by Query"),))]
-#[get("/house/{user}")]
+#[utoipa::path(
+    context_path = "/api/attendance",
+    tag = "Attendance",
+    responses(
+        (status = 200, description = "Success", body = Vec<Absences>),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error"),
+    ),
+    security(
+        ("csh" = []),
+    )
+)]
+#[get("/house/users", wrap = "CSHAuth::member_only()")]
+pub async fn count_hm_absences(
+    state: Data<AppState>,
+) -> Result<impl Responder, UserError> {
+    let mut transaction = open_transaction(&state.db).await?;
+    let users = get_group_members_exact(&state.ldap, "active").await;
+    let usernames: Vec<_>;
+    if let Ok(members) = users {
+        usernames = members.into_iter().map(|m| m.rit_username).collect();
+    } else {
+        log::error!("LDAP is unresponsive");
+        return Err(UserError::ServerError);
+    }
+    let uids: Vec<_> = query_as!(ID, "select id from \"user\" where rit_username in (select unnest($1::varchar[]))", usernames.as_slice()).fetch_all(&mut *transaction).await?.iter_mut().map(|x| x.id).collect();
+    let now = Utc::now();
+    let counts = query_as!(
+        Absences,
+        "select uid, count(*) from hm_attendance hma left join house_meeting hm on \
+         hma.house_meeting_id = hm.id where attendance_status = 'Absent' and date > $1 group by \
+         uid having uid in (select unnest($2::int4[]))",
+        if now.month() > 5 {
+            NaiveDate::from_ymd_opt(now.year(), 6, 1).unwrap()
+        } else {
+            NaiveDate::from_ymd_opt(now.year() - 1, 6, 1).unwrap()
+        },
+        uids.as_slice()
+    )
+    .fetch_all(&mut *transaction)
+    .await?;
+    Ok(HttpResponse::Ok().json(counts))
+}
+
+#[utoipa::path(
+    context_path = "/api/attendance",
+    tag = "Attendance",
+    responses(
+        (status = 200, description = "Success"),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error"),
+    ),
+    security(
+        ("csh" = []),
+        ("intro" = []),
+    )
+)]
+#[get("/house", wrap = "CSHAuth::member_and_intro()")]
 pub async fn get_hm_absences_by_user(
-    path: Path<(String,)>,
+    user: UserInfo,
     state: Data<AppState>,
-) -> impl Responder {
-    let (user,) = path.into_inner();
-    log!(Level::Info, "GET /attendance/house/{user}");
-
-    if user.chars().next().unwrap().is_numeric() {
-        let user: i32 = match user.parse() {
-            Ok(user) => user,
-            Err(_) => {
-                log!(Level::Warn, "Invalid id");
-                return HttpResponse::BadRequest().body("Invalid id");
-            }
-        };
-        match log_query_as(query_as!(Date, "SELECT date FROM house_meetings WHERE date > $1 AND id IN (SELECT meeting_id FROM freshman_hm_attendance WHERE fid = $2 AND attendance_status = 'Absent')", &NaiveDate::from(state.year_start), user).fetch_all(&state.db).await, None).await {
-            Ok((_, hms)) => HttpResponse::Ok().json(hms),
-            Err(e) => return e,
-        }
-    } else {
-        match log_query_as(query_as!(Date, "SELECT date FROM house_meetings WHERE date > $1 AND id IN (SELECT meeting_id FROM member_hm_attendance WHERE uid = $2 AND attendance_status = 'Absent')", &NaiveDate::from(state.year_start), user).fetch_all(&state.db).await, None).await {
-            Ok((_, hms)) => HttpResponse::Ok().json(hms),
-            Err(e) => return e,
-        }
-    }
+) -> Result<impl Responder, UserError> {
+    // INFO: leaving this here in case I need to get a User from a uid
+    // let user = query_as!(User, "SELECT id uid, name, rit_username, csh_username,
+    // is_csh, is_intro FROM \"user\" WHERE id = $1",
+    // user.get_uid(&state.db).await?).fetch_one(&state.db).await?;
+    let now = Utc::now();
+    let hms = query_as!(
+        DateWrapper,
+        "select date from house_meeting where date > $1 and id IN (SELECT house_meeting_id FROM \
+         hm_attendance WHERE uid = $2 AND attendance_status = 'Absent')",
+        if now.month() > 5 {
+            NaiveDate::from_ymd_opt(now.year(), 6, 1).unwrap()
+        } else {
+            NaiveDate::from_ymd_opt(now.year() - 1, 6, 1).unwrap()
+        },
+        user.get_uid(&state.db).await?
+    )
+    .fetch_all(&state.db)
+    .await?;
+    Ok(HttpResponse::Ok().json(hms))
 }
 
-#[utoipa::path(context_path="/attendance", responses((status = 200, description = "Get house meetings not attended for a given user", body = [NaiveDate]),(status = 400, description = "Invalid user"),(status = 500, description = "Error created by Query"),))]
-#[get("/house/evals/{user}")]
+// FIXME: get requests with bodies are bad; use url param instead
+#[utoipa::path(
+    context_path = "/api/attendance",
+    tag = "Attendance",
+    responses(
+        (status = 200, description = "Success", body = Vec<AbsenceWrapper>),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error"),
+    ),
+    params(
+        ("uid" = String, Path, description = "User"),
+    ),
+    security(
+        ("csh" = ["eboard"]),
+    )
+)]
+#[get("/house/evals/{uid}", wrap = "CSHAuth::evals_only()")]
 pub async fn get_hm_attendance_by_user_evals(
-    path: Path<(String,)>,
     state: Data<AppState>,
-) -> impl Responder {
-    let (user,) = path.into_inner();
-    log!(Level::Info, "GET /attendance/house/evals/{user}");
-
-    if user.chars().next().unwrap().is_numeric() {
-        let user: i32 = match user.parse() {
-            Ok(user) => user,
-            Err(_) => {
-                log!(Level::Warn, "Invalid id");
-                return HttpResponse::BadRequest().body("Invalid id");
-            }
-        };
-        match log_query_as(query_as!(EvalsHmAtt, "select attendance_status as \"attendance_status:_\", excuse, date from (select * from freshman_hm_attendance where fid = $2) as mha left join house_meetings on mha.meeting_id = house_meetings.id where date > $1 and attendance_status != 'Attended'", NaiveDate::from(state.year_start), user).fetch_all(&state.db).await, None).await {
-            Ok((_, hms)) => HttpResponse::Ok().json(hms),
-            Err(e) => return e,
-        }
+    path: (String,)
+) -> Result<impl Responder, UserError> {
+    let res = path.0.parse::<i32>();
+    let uid;
+    if let Ok(x) = res {
+        uid = x;
     } else {
-        match log_query_as(query_as!(EvalsHmAtt, "select attendance_status as \"attendance_status:_\", excuse, date from (select * from member_hm_attendance where uid = $2) as mha left join house_meetings on mha.meeting_id = house_meetings.id where date > $1 and attendance_status != 'Attended'", NaiveDate::from(state.year_start), user).fetch_all(&state.db).await, None).await {
-            Ok((_, hms)) => HttpResponse::Ok().json(hms),
-            Err(e) => return e,
-        }
+        return Err(UserError::ValueError { value: path.0, field: String::from("uid") })
     }
+    let now = Utc::now();
+    let hms = query_as!(
+        AbsenceWrapper,
+        "select date, excuse from hm_attendance left join house_meeting on \
+         hm_attendance.house_meeting_id = house_meeting.id where date > $1 and uid = $2 AND \
+         attendance_status != 'Attended'",
+        if now.month() > 5 {
+            NaiveDate::from_ymd_opt(now.year(), 6, 1).unwrap()
+        } else {
+            NaiveDate::from_ymd_opt(now.year() - 1, 6, 1).unwrap()
+        },
+        uid
+    )
+    .fetch_all(&state.db)
+    .await?;
+    Ok(HttpResponse::Ok().json(hms))
 }
 
-#[utoipa::path(context_path="/attendance", responses((status = 200, description = "Modify attendance for a given user at a given house meeting"),(status = 400, description = "Invalid user"),(status = 500, description = "Error created by Query"),))]
-#[put("/house/{user}")]
+#[utoipa::path(
+    context_path = "/api/attendance",
+    tag = "Attendance",
+    request_body = HouseMeetingAttendanceUpdate,
+    responses(
+        (status = 200, description = "Success"),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error"),
+    ),
+    security(
+        ("csh" = ["eboard"]),
+    )
+)]
+#[put("/house")]
 pub async fn modify_hm_attendance(
-    path: Path<(String,)>,
     state: Data<AppState>,
-    body: Json<HmAttendance>,
-) -> impl Responder {
-    let (user,) = path.into_inner();
-    log!(Level::Info, "PUT /attendance/house/{user}");
-    let body = body.into_inner();
-    let new_status = body.attendance_status;
-    let excuse = body.excuse;
-    let date = body.date;
-
-    let mut transaction = match open_transaction(&state.db).await {
-        Ok(t) => t,
-        Err(res) => return res,
-    };
-
-    if user.chars().next().unwrap().is_numeric() {
-        let user: i32 = match user.parse() {
-            Ok(user) => user,
-            Err(_) => {
-                log!(Level::Warn, "Invalid id");
-                return HttpResponse::BadRequest().body("Invalid id");
-            }
-        };
-        match log_query(query!("UPDATE freshman_hm_attendance SET attendance_status = $1, excuse = $2 WHERE fid = $3 AND id IN (SELECT id FROM house_meetings WHERE date > $4)", new_status as AttendanceStatus, excuse, user, date).execute(&state.db).await.map(|_| ()), Some(transaction)).await {
-            Ok(tx) => transaction = tx.unwrap(),
-            Err(res) => return res,
-        }
-    } else {
-        match log_query(query!("UPDATE member_hm_attendance SET attendance_status = $1, excuse = $2 WHERE uid = $3 AND id IN (SELECT id FROM house_meetings WHERE date > $4)", new_status as AttendanceStatus, excuse, user, date).execute(&state.db).await.map(|_| ()), Some(transaction)).await {
-            Ok(tx) => transaction = tx.unwrap(),
-            Err(res) => return res,
-        }
-    }
-
-    match transaction.commit().await {
-        Ok(_) => HttpResponse::Ok().body(""),
-        Err(e) => {
-            log!(Level::Error, "Transaction failed to commit");
-            HttpResponse::InternalServerError().body(e.to_string())
-        }
-    }
+    body: Json<HouseMeetingAttendanceUpdate>,
+) -> Result<impl Responder, UserError> {
+    let mut transaction = open_transaction(&state.db).await?;
+    query!(
+        "UPDATE hm_attendance SET attendance_status = $1, excuse = $2 WHERE uid = $3 AND \
+         house_meeting_id = $4",
+        body.att_status as AttendanceStatus,
+        body.excuse,
+        body.uid,
+        body.meeting_id
+    )
+    .execute(&mut *transaction)
+    .await?;
+    transaction.commit().await?;
+    Ok(HttpResponse::Ok().finish())
 }

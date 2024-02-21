@@ -1,5 +1,6 @@
 use crate::{
     api::attendance::meeting::*,
+    api::attendance::house::*,
     api::forms::intro_evals::*,
     ldap::client::LdapClient,
     schema::{api, db},
@@ -35,6 +36,11 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             get_all_intro_forms,
             submit_intro_form,
             update_intro_form,
+            submit_hm_attendance,
+            count_hm_absences,
+            get_hm_absences_by_user,
+            get_hm_attendance_by_user_evals,
+            modify_hm_attendance,
         ),
         components(
             schemas(
@@ -46,6 +52,9 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                 api::MeetingAttendance,
                 api::User,
                 api::IntroForm,
+                api::Absences,
+                api::AbsenceWrapper,
+                api::DateWrapper,
                 IntroFormSubmission,
             )
         ),
@@ -94,7 +103,12 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                     .service(get_user_seminars)
                     .service(get_attendance_history)
                     .service(delete_meeting)
-                    .service(modify_attendance),
+                    .service(modify_attendance)
+                    .service(submit_hm_attendance)
+                    .service(count_hm_absences)
+                    .service(get_hm_absences_by_user)
+                    .service(get_hm_attendance_by_user_evals)
+                    .service(modify_hm_attendance),
             )
             .service(
                 scope("/forms")

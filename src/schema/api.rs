@@ -137,14 +137,22 @@ pub struct FreshmanUpgrade {
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct HouseMeetingAttendance {
-    pub fid: i32,
+    pub uid: i32,
     pub att_status: AttendanceStatus,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct HouseMeetingAttendanceUpdate {
+    pub uid: i32,
+    pub att_status: AttendanceStatus,
+    pub excuse: String,
+    pub meeting_id: i32,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct HouseAttendance {
     pub date: NaiveDate,
-    pub attendees: Vec<User>,
+    pub attendees: Vec<HouseMeetingAttendance>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
@@ -223,6 +231,24 @@ pub struct PullRequests {
     pub frosh: Vec<FreshmanPull>,
     pub members: Vec<MemberPull>,
 }
+
+#[derive(FromRow, Serialize, Deserialize, Clone, Debug, ToSchema, PartialEq, Eq)]
+pub struct Absences {
+    uid: i32,
+    count: Option<i64>,
+}
+
+#[derive(FromRow, Serialize, Deserialize, Clone, Debug, ToSchema, PartialEq, Eq)]
+pub struct DateWrapper {
+    date: NaiveDate,
+}
+
+#[derive(FromRow, Serialize, Deserialize, Clone, Debug, ToSchema, PartialEq, Eq)]
+pub struct AbsenceWrapper {
+    date: NaiveDate,
+    excuse: Option<String>,
+}
+
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct Batch {

@@ -1,5 +1,5 @@
 pub mod attendance {
-    // pub mod house;
+    pub mod house;
     pub mod meeting;
 }
 

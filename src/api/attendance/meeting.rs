@@ -328,8 +328,8 @@ pub struct ModifyMeetingParameters {
 
 /// Modify a meeting's attendance
 ///
-/// Adding attendance happens before deleting, so if the same user ID is present in both
-/// `add` and `delete` lists, it will be deleted.
+/// Adding attendance happens before deleting, so if the same user ID is present
+/// in both `add` and `delete` lists, it will be deleted.
 ///
 /// Accessible by: Eboard
 #[utoipa::path(
