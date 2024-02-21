@@ -11,8 +11,8 @@ use sqlx::FromRow;
 use utoipa::ToSchema;
 
 use super::db::{
-    AttendanceStatus, BatchComparison, BatchCondition, MajorProjectStatusEnum, MeetingType,
-    SemesterEnum,
+    AttendanceStatus, BatchComparison, BatchCondition, EvalStatusEnum, MajorProjectStatusEnum,
+    MeetingType, SemesterEnum,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -169,17 +169,20 @@ pub struct MajorProjectSubmissionEboard {
     pub status: MajorProjectStatusEnum,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct IntroForm {
+    /// Social events attended
+    pub social_events: String,
+    /// Other comments
+    pub other_comments: String,
+    /// Status for user passing 6 weeks
+    pub status: EvalStatusEnum,
+}
+
 pub struct CoopSubmission {
     pub uid: String,
     pub date: NaiveDateTime,
     pub semester: SemesterEnum,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct IntroFormSubmission {
-    pub uid: String,
-    pub social_events: Option<String>,
-    pub comments: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]

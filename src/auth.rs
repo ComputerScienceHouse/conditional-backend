@@ -17,6 +17,7 @@ use openssl::{
 };
 use reqwest::IntoUrl;
 use serde::{Deserialize, Serialize};
+use sqlx::{query, query_as, Pool, Postgres, Transaction};
 use std::{
     collections::HashMap,
     future::{ready, Ready},
@@ -26,7 +27,7 @@ use std::{
 };
 use std::{env, sync::Mutex};
 
-use crate::ldap::user;
+use crate::api::lib::UserError;
 
 lazy_static! {
     static ref CSH_JWT_CACHE: Arc<Mutex<HashMap<String, PKey<Public>>>> =
@@ -142,6 +143,29 @@ impl User {
                 "https://sso.csh.rit.edu/auth/realms/intro/protocol/openid-connect/certs",
             ),
         }
+    }
+
+    pub fn get_uuid(&self) -> String {
+        match self {
+            User::CshUser { uuid, .. } => uuid.to_string(),
+            User::IntroUser { user, .. } => user.sub.clone(),
+        }
+    }
+
+    pub async fn get_uid(&self, db: &Pool<Postgres>) -> Result<i32, UserError> {
+        let uuid = self.get_uuid();
+        Ok(*query_as!(
+            crate::schema::db::ID,
+            r#"
+                SELECT id
+                FROM "user" u
+                WHERE u.ipa_unique_id = $1::varchar
+                OR u.intro_id = $1::varchar
+            "#,
+            uuid
+        )
+        .fetch_one(db)
+        .await?)
     }
 }
 
@@ -382,6 +406,13 @@ impl CSHAuth {
         Self {
             enabled: *SECURITY_ENABLED,
             access_level: AccessLevel::MemberAndIntro,
+        }
+    }
+
+    pub fn intro_only() -> Self {
+        Self {
+            enabled: *SECURITY_ENABLED,
+            access_level: AccessLevel::IntroOnly,
         }
     }
 

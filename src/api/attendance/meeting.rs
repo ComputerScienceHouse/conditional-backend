@@ -11,8 +11,8 @@ use utoipa::{IntoParams, ToSchema};
 use validator::Validate;
 
 use actix_web::{
-    delete, get, patch, post, web,
-    web::{Data, Path},
+    delete, get, patch, post,
+    web::{Data, Json},
     HttpResponse, Responder,
 };
 use log::{log, Level};
@@ -54,7 +54,7 @@ async fn insert_meeting_attendance<'a>(
     Ok(())
 }
 
-async fn get_intro_meetings_this_session(
+async fn get_meetings_this_session(
     db: &Pool<Postgres>,
     uuid: String,
     meeting_type: MeetingType,
@@ -70,7 +70,7 @@ async fn get_intro_meetings_this_session(
         LEFT JOIN "user" u
             ON u.id = oa.uid
         WHERE om.approved
-        AND u.intro_id = $1::varchar
+        AND (u.ipa_unique_id = $1::varchar OR u.intro_id = $1::varchar)
         AND om.meeting_type = $2::meeting_type_enum
         AND om.datetime > $3::timestamp"#,
         uuid,
@@ -82,35 +82,7 @@ async fn get_intro_meetings_this_session(
     .count)
 }
 
-async fn get_member_meetings_this_session(
-    db: &Pool<Postgres>,
-    ipa_unique_id: String,
-    meeting_type: MeetingType,
-    start_time: NaiveDateTime,
-) -> Result<i64, UserError> {
-    Ok(query_as!(
-        Count,
-        r#"SELECT
-            COUNT(*) as "count!"
-        FROM other_meeting om
-        LEFT JOIN om_attendance oa
-            ON om.id = oa.om_id
-        LEFT JOIN "user" u
-            ON u.id = oa.uid
-        WHERE om.approved
-        AND u.ipa_unique_id = $1::varchar
-        AND om.meeting_type = $2::meeting_type_enum
-        AND om.datetime > $3::timestamp"#,
-        ipa_unique_id,
-        meeting_type as MeetingType,
-        &start_time
-    )
-    .fetch_one(db)
-    .await?
-    .count)
-}
-
-async fn get_intro_meetings(
+async fn get_meetings(
     db: &Pool<Postgres>,
     uuid: String,
     meeting_type: MeetingType,
@@ -131,44 +103,11 @@ async fn get_intro_meetings(
         LEFT JOIN "user" u
             ON u.id = oa.uid
         WHERE om.approved
-        AND u.intro_id = $1::varchar
+        AND (u.ipa_unique_id = $1::varchar OR u.intro_id = $1::varchar)
         AND om.meeting_type = $2::meeting_type_enum
         AND om.datetime > $3::timestamp
         ORDER BY om.datetime DESC, om.id DESC"#,
         uuid,
-        meeting_type as MeetingType,
-        &start_time
-    )
-    .fetch_all(db)
-    .await?)
-}
-
-async fn get_member_meetings(
-    db: &Pool<Postgres>,
-    ipa_unique_id: String,
-    meeting_type: MeetingType,
-    start_time: Option<NaiveDateTime>,
-) -> Result<Vec<api::Meeting>, UserError> {
-    let start_time = start_time.unwrap_or(NaiveDateTime::UNIX_EPOCH);
-    Ok(query_as!(
-        api::Meeting,
-        r#"SELECT
-            om.id,
-            om.meeting_type as "meeting_type!: MeetingType",
-            om.datetime as "timestamp",
-            om.name,
-            om.approved
-        FROM other_meeting om
-        LEFT JOIN om_attendance oa
-            ON om.id = oa.om_id
-        LEFT JOIN "user" u
-            ON u.id = oa.uid
-        WHERE om.approved
-        AND u.ipa_unique_id = $1::varchar
-        AND om.meeting_type = $2::meeting_type_enum
-        AND om.datetime > $3::timestamp
-        ORDER BY om.datetime DESC, om.id DESC"#,
-        ipa_unique_id,
         meeting_type as MeetingType,
         &start_time
     )
@@ -194,12 +133,9 @@ async fn get_member_meetings(
 )]
 #[post("/meeting", wrap = "CSHAuth::member_only()")]
 pub async fn submit_meeting_attendance(
-    meeting_type: Path<String>,
     state: Data<AppState>,
-    body: web::Json<MeetingSubmission>,
+    body: Json<MeetingSubmission>,
 ) -> Result<impl Responder, UserError> {
-    log!(Level::Info, "POST /attendance/{meeting_type}");
-    // return Ok(HttpResponse::Ok().finish());
     let mut transaction = open_transaction(&state.db).await?;
     let id = query_as!(
         db::ID,
@@ -216,7 +152,7 @@ pub async fn submit_meeting_attendance(
     let members: Vec<i32> = body.attendees.iter().map(|id| *id).collect();
     insert_meeting_attendance(*id, members, &mut transaction).await?;
     log!(Level::Trace, "Added directorship attendance");
-    transaction.rollback().await?;
+    transaction.commit().await?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -241,15 +177,8 @@ pub async fn get_user_directorships(
     user: UserInfo,
     state: Data<AppState>,
 ) -> Result<impl Responder, UserError> {
-    log!(Level::Info, "User: {:?}", user);
-    let meetings = match user {
-        UserInfo::CshUser { uuid, .. } => {
-            get_member_meetings(&state.db, uuid, MeetingType::Directorship, None).await?
-        }
-        UserInfo::IntroUser { user, .. } => {
-            get_intro_meetings(&state.db, user.sub, MeetingType::Directorship, None).await?
-        }
-    };
+    let meetings =
+        get_meetings(&state.db, user.get_uuid(), MeetingType::Directorship, None).await?;
     Ok(HttpResponse::Ok().json(meetings))
 }
 
@@ -274,15 +203,7 @@ pub async fn get_user_seminars(
     user: UserInfo,
     state: Data<AppState>,
 ) -> Result<impl Responder, UserError> {
-    log!(Level::Info, "User: {:?}", user);
-    let meetings = match user {
-        UserInfo::CshUser { uuid, .. } => {
-            get_member_meetings(&state.db, uuid, MeetingType::Seminar, None).await?
-        }
-        UserInfo::IntroUser { user, .. } => {
-            get_intro_meetings(&state.db, user.sub, MeetingType::Seminar, None).await?
-        }
-    };
+    let meetings = get_meetings(&state.db, user.get_uuid(), MeetingType::Seminar, None).await?;
     Ok(HttpResponse::Ok().json(meetings))
 }
 
@@ -329,7 +250,7 @@ pub async fn get_attendance_history(
         meeting: sqlx::types::Json<api::Meeting>,
         attendees: sqlx::types::Json<Vec<db::User>>,
     }
-    let attendances = &mut query_as!(
+    let attendances = query_as!(
         MeetingAttendance,
         r#"
         SELECT
@@ -387,13 +308,13 @@ pub struct DeleteMeetingParameters {
 #[delete("/meeting", wrap = "CSHAuth::evals_only()")]
 pub async fn delete_meeting(
     state: Data<AppState>,
-    body: web::Json<DeleteMeetingParameters>,
+    body: Json<DeleteMeetingParameters>,
 ) -> Result<impl Responder, UserError> {
     let mut transaction = open_transaction(&state.db).await?;
     query!("DELETE FROM other_meeting WHERE id = $1", body.id)
         .execute(&mut *transaction)
         .await?;
-    transaction.rollback().await?;
+    transaction.commit().await?;
     log!(Level::Trace, "Deleted directorship attendance");
     Ok(HttpResponse::Ok().finish())
 }
@@ -428,7 +349,7 @@ pub struct ModifyMeetingParameters {
 #[patch("/meeting/attendance", wrap = "CSHAuth::eboard_only()")]
 pub async fn modify_attendance(
     state: Data<AppState>,
-    body: web::Json<ModifyMeetingParameters>,
+    body: Json<ModifyMeetingParameters>,
 ) -> Result<impl Responder, UserError> {
     let mut transaction = open_transaction(&state.db).await?;
     if let Some(to_add) = &body.add {
@@ -444,7 +365,7 @@ pub async fn modify_attendance(
         .execute(&mut *transaction)
         .await?;
     }
-    transaction.rollback().await?;
+    transaction.commit().await?;
     log!(Level::Trace, "Updated directorship attendance");
     Ok(HttpResponse::Ok().finish())
 }

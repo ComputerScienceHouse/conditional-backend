@@ -1,12 +1,13 @@
 use actix_web::{
     error, get,
     http::{header::ContentType, StatusCode},
-    App, HttpResponse, HttpServer,
+    HttpResponse,
 };
 use derive_more::{Display, Error};
 use log::{log, Level};
-use sqlx::{Error, Pool, Postgres, Transaction};
+use sqlx::{query_as, Pool, Postgres, Transaction};
 
+/// Error wrapper around sqlx::Error and actix_web::error::ResponseError
 #[derive(Debug, Display, Error)]
 pub enum UserError {
     #[display(fmt = "Invalid input: {} for field {}", value, field)]
