@@ -31,7 +31,7 @@ async fn main() -> std::io::Result<()> {
     }
     let app_data = get_app_data().await;
     HttpServer::new(move || {
-        let cors = if *SECURITY_ENABLED {
+        let _cors = if *SECURITY_ENABLED {
             Cors::default()
                 .allow_any_origin()
                 // .allowed_origin(&env::var("DOMAIN").unwrap_or("localhost".to_string()))

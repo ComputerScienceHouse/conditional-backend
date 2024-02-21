@@ -149,7 +149,7 @@ pub async fn submit_meeting_attendance(
     .fetch_one(&mut *transaction)
     .await?;
     log!(Level::Trace, "Inserted directorship into db ID={}", id);
-    let members: Vec<i32> = body.attendees.iter().map(|id| *id).collect();
+    let members: Vec<i32> = body.attendees.to_vec();
     insert_meeting_attendance(*id, members, &mut transaction).await?;
     log!(Level::Trace, "Added directorship attendance");
     transaction.commit().await?;

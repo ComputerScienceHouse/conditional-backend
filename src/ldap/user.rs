@@ -46,7 +46,7 @@ where
     T: FromStr,
     <T as FromStr>::Err: Debug,
 {
-    match entry.get(field).map(|f| f.get(0).unwrap().parse::<T>()) {
+    match entry.get(field).map(|f| f.first().unwrap().parse::<T>()) {
         Some(Ok(r)) => Some(r),
         _ => None,
     }
@@ -64,7 +64,7 @@ where
                 .filter_map(|f| f.parse::<T>().ok())
                 .collect::<Vec<_>>()
         })
-        .unwrap_or(vec![])
+        .unwrap_or_default()
 }
 
 pub fn get_groups(member_of: Vec<String>) -> Vec<String> {

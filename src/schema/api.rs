@@ -5,7 +5,7 @@
 // as relations in one of two tables
 
 use chrono::{NaiveDate, NaiveDateTime};
-use derive_more::{Deref, Display};
+
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use utoipa::ToSchema;

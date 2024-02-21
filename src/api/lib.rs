@@ -1,11 +1,11 @@
 use actix_web::{
-    error, get,
+    error,
     http::{header::ContentType, StatusCode},
     HttpResponse,
 };
 use derive_more::{Display, Error};
 use log::{log, Level};
-use sqlx::{query_as, Pool, Postgres, Transaction};
+use sqlx::{Pool, Postgres, Transaction};
 
 /// Error wrapper around sqlx::Error and actix_web::error::ResponseError
 #[derive(Debug, Display, Error)]

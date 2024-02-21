@@ -17,7 +17,7 @@ use openssl::{
 };
 use reqwest::IntoUrl;
 use serde::{Deserialize, Serialize};
-use sqlx::{query, query_as, Pool, Postgres, Transaction};
+use sqlx::{query_as, Pool, Postgres};
 use std::{
     collections::HashMap,
     future::{ready, Ready},
@@ -191,7 +191,7 @@ fn get_token_pieces(token: String) -> Result<(TokenHeader, String, User, String,
         token_header_base64.to_owned(),
         token_payload,
         token_payload_base64.to_owned(),
-        token_signature.into(),
+        token_signature,
     ))
 }
 
@@ -233,13 +233,13 @@ async fn authorize(token: String, access_level: AccessLevel) -> Result<User, act
             if access_level == AccessLevel::IntroOnly {
                 return unauthorized_err;
             }
-            return Ok(token_payload);
+            Ok(token_payload)
         }
         User::IntroUser { .. } => match access_level {
             AccessLevel::MemberAndIntro | AccessLevel::IntroOnly | AccessLevel::Public => {
-                return Ok(token_payload);
+                Ok(token_payload)
             }
-            _ => return unauthorized_err,
+            _ => unauthorized_err,
         },
     }
 }
@@ -268,11 +268,11 @@ async fn verify_token(
     let (data_cache, cert_url) = payload.get_cache_info();
 
     let mut cache = data_cache.lock().unwrap();
-    let pkey = match cache.get(header.kid.as_str()).clone() {
+    let pkey = match cache.get(header.kid.as_str()) {
         Some(x) => Some(x),
         None => {
             update_cache(&mut cache, cert_url).await.unwrap();
-            cache.get(header.kid.as_str()).clone()
+            cache.get(header.kid.as_str())
         }
     };
     log!(Level::Info, "got pkey {:?}", pkey);
@@ -305,8 +305,8 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let srv = self.service.clone();
-        let enabled = self.enabled.clone();
-        let access_level = self.access_level.clone();
+        let enabled = self.enabled;
+        let access_level = self.access_level;
 
         Box::pin(async move {
             if enabled {

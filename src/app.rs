@@ -126,10 +126,10 @@ pub async fn get_app_data() -> Data<AppState> {
     log!(Level::Info, "Successfully opened packet db connection");
 
     let ldap = LdapClient::new(
-        &env::var("CONDITIONAL_LDAP_BIND_DN")
+        env::var("CONDITIONAL_LDAP_BIND_DN")
             .expect("CONDITIONAL_LDAP_BIND_DN not set")
             .as_str(),
-        &env::var("CONDITIONAL_LDAP_BIND_PW")
+        env::var("CONDITIONAL_LDAP_BIND_PW")
             .expect("CONDITIONAL_LDAP_BIND_PW not set")
             .as_str(),
     )
