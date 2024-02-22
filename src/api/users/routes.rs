@@ -36,6 +36,7 @@ pub async fn get_voting_count(state: Data<AppState>) -> Result<impl Responder, U
 
 #[utoipa::path(
     context_path="/api/users",
+    tag = "Users",
     responses(
         (status = 200, description = "The number of active members", body = i32),
         (status = 400, description = "Bad Request"),
@@ -59,6 +60,7 @@ pub async fn get_active_count(state: Data<AppState>) -> Result<impl Responder, U
 
 #[utoipa::path(
     context_path="/api/users",
+    tag = "Users",
     responses(
         (status = 200, description = "A list of members matching the search string", body = Vec<LdapUser>),
         (status = 400, description = "Bad Request"),
@@ -87,6 +89,7 @@ pub async fn search_members(
 
 #[utoipa::path(
     context_path="/api/users",
+    tag = "Users",
     responses(
         (status = 200, description = "Gets All members", body = Vec<User>),
         (status = 400, description = "Bad Request"),
@@ -112,6 +115,7 @@ pub async fn all_members(state: Data<AppState>) -> Result<impl Responder, UserEr
 
 #[utoipa::path(
     context_path="/api/users",
+    tag = "Users",
     responses(
         (status = 200, description = "Freshman user successfully converted to member"),
         (status = 400, description = "Bad Request"),

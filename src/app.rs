@@ -2,7 +2,9 @@ use crate::{
     api::attendance::house::*,
     api::attendance::meeting::*,
     api::forms::intro_evals::*,
+    api::users::routes::*,
     ldap::client::LdapClient,
+    ldap::*,
     schema::{api, db},
 };
 use actix_web::web::{self, scope, Data};
@@ -41,6 +43,11 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             get_hm_absences_by_user,
             get_hm_attendance_by_user_evals,
             modify_hm_attendance,
+            get_voting_count,
+            get_active_count,
+            search_members,
+            all_members,
+            convert_freshman_user,
         ),
         components(
             schemas(
@@ -56,6 +63,8 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                 api::AbsenceWrapper,
                 api::DateWrapper,
                 IntroFormSubmission,
+                api::FreshmanUpgrade,
+                user::LdapUser,
             )
         ),
         modifiers(&SecurityAddon),
@@ -117,6 +126,15 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                     .service(get_all_intro_forms)
                     .service(submit_intro_form)
                     .service(update_intro_form),
+            )
+            .service(
+                scope("/users")
+                    // User routes
+                    .service(get_voting_count)
+                    .service(get_active_count)
+                    .service(search_members)
+                    .service(all_members)
+                    .service(convert_freshman_user),
             ),
     )
     .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));
