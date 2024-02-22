@@ -15,8 +15,8 @@ pub mod forms {
 //     pub mod routes;
 // }
 
-// pub mod users {
-//     pub mod routes;
-// }
+pub mod users {
+    pub mod routes;
+}
 
 pub mod lib;

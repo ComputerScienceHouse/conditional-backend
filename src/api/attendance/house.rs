@@ -8,10 +8,14 @@ use serde::Serialize;
 use sqlx::{query, query_as};
 
 use crate::{
-    api::lib::{open_transaction, UserError}, app::AppState, auth::{CSHAuth, UserInfo}, ldap::get_group_members_exact, schema::{
+    api::lib::{open_transaction, UserError},
+    app::AppState,
+    auth::{CSHAuth, UserInfo},
+    ldap::get_group_members_exact,
+    schema::{
         api::*,
         db::{AttendanceStatus, ID},
-    }
+    },
 };
 
 #[derive(sqlx::Type, Serialize)]
@@ -95,9 +99,7 @@ pub async fn submit_hm_attendance(
     )
 )]
 #[get("/house/users", wrap = "CSHAuth::member_only()")]
-pub async fn count_hm_absences(
-    state: Data<AppState>,
-) -> Result<impl Responder, UserError> {
+pub async fn count_hm_absences(state: Data<AppState>) -> Result<impl Responder, UserError> {
     let mut transaction = open_transaction(&state.db).await?;
     let users = get_group_members_exact(&state.ldap, "active").await;
     let usernames: Vec<_>;
@@ -107,7 +109,16 @@ pub async fn count_hm_absences(
         log::error!("LDAP is unresponsive");
         return Err(UserError::ServerError);
     }
-    let uids: Vec<_> = query_as!(ID, "select id from \"user\" where rit_username in (select unnest($1::varchar[]))", usernames.as_slice()).fetch_all(&mut *transaction).await?.iter_mut().map(|x| x.id).collect();
+    let uids: Vec<_> = query_as!(
+        ID,
+        "select id from \"user\" where rit_username in (select unnest($1::varchar[]))",
+        usernames.as_slice()
+    )
+    .fetch_all(&mut *transaction)
+    .await?
+    .iter_mut()
+    .map(|x| x.id)
+    .collect();
     let now = Utc::now();
     let counts = query_as!(
         Absences,
@@ -166,7 +177,6 @@ pub async fn get_hm_absences_by_user(
     Ok(HttpResponse::Ok().json(hms))
 }
 
-// FIXME: get requests with bodies are bad; use url param instead
 #[utoipa::path(
     context_path = "/api/attendance",
     tag = "Attendance",
@@ -186,14 +196,17 @@ pub async fn get_hm_absences_by_user(
 #[get("/house/evals/{uid}", wrap = "CSHAuth::evals_only()")]
 pub async fn get_hm_attendance_by_user_evals(
     state: Data<AppState>,
-    path: (String,)
+    path: (String,),
 ) -> Result<impl Responder, UserError> {
     let res = path.0.parse::<i32>();
     let uid;
     if let Ok(x) = res {
         uid = x;
     } else {
-        return Err(UserError::ValueError { value: path.0, field: String::from("uid") })
+        return Err(UserError::ValueError {
+            value: path.0,
+            field: String::from("uid"),
+        });
     }
     let now = Utc::now();
     let hms = query_as!(

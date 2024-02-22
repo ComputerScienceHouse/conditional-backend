@@ -1,6 +1,6 @@
 use crate::{
-    api::attendance::meeting::*,
     api::attendance::house::*,
+    api::attendance::meeting::*,
     api::forms::intro_evals::*,
     ldap::client::LdapClient,
     schema::{api, db},

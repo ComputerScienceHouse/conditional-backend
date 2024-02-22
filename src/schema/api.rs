@@ -249,7 +249,6 @@ pub struct AbsenceWrapper {
     excuse: Option<String>,
 }
 
-
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct Batch {
     /// ID of the batch
