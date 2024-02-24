@@ -133,7 +133,7 @@ pub async fn convert_freshman_user(
 ) -> Result<impl Responder, UserError> {
     let mut transaction = open_transaction(&state.db).await?;
     query!(
-        r#"update "user" set is_csh = true, is_intro = false, ipa_unique_id = $1"#,
+        r#"update "user" set ipa_unique_id = $1"#,
         body.ipa_unique_id
     )
     .execute(&mut *transaction)
