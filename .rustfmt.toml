@@ -1,4 +1,3 @@
-binop_seperator = "Back"
 format_code_in_doc_comments = true
 format_strings = true
 normalize_comments = true
