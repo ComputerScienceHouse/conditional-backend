@@ -11,9 +11,9 @@ pub mod forms {
 //     pub mod batch;
 // }
 
-// pub mod evals {
-//     pub mod routes;
-// }
+pub mod evals {
+    pub mod routes;
+}
 
 pub mod users {
     pub mod routes;

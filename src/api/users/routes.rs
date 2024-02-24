@@ -106,7 +106,7 @@ pub async fn all_members(state: Data<AppState>) -> Result<impl Responder, UserEr
     Ok(HttpResponse::Ok().json(
         query_as!(
             User,
-            r#"select id uid, name, rit_username, csh_username, is_csh, is_intro from "user""#
+            r#"select id uid, name, rit_username, csh_username from "user""#
         )
         .fetch_all(&state.db)
         .await?,

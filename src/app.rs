@@ -1,6 +1,7 @@
 use crate::{
     api::attendance::house::*,
     api::attendance::meeting::*,
+    api::evals::routes::*,
     api::forms::intro_evals::*,
     api::users::routes::*,
     ldap::client::LdapClient,
@@ -48,6 +49,10 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             search_members,
             all_members,
             convert_freshman_user,
+            get_intro_member_evals,
+            get_member_evals,
+            get_conditional,
+            get_gatekeep,
         ),
         components(
             schemas(
@@ -65,6 +70,8 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                 IntroFormSubmission,
                 api::FreshmanUpgrade,
                 user::LdapUser,
+                api::IntroStatus,
+                api::MemberStatus,
             )
         ),
         modifiers(&SecurityAddon),

@@ -32,26 +32,26 @@ pub struct User {
     pub rit_username: String,
     /// CSH username of the member, if they have one
     pub csh_username: Option<String>,
-    /// If the user has a CSH account
-    pub is_csh: bool,
-    /// If the user is an intro member
-    pub is_intro: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct IntroStatus {
-    /// User object
-    pub user: User,
+    /// User ID of the member
+    pub uid: i32,
+    /// Name of the member
+    pub name: String,
+    /// RIT username
+    pub username: String,
     /// Number of seminars attended
-    pub seminars: i64,
+    pub seminars: Option<i64>,
     /// Number of directorships attended
-    pub directorships: i64,
+    pub directorships: Option<i64>,
     /// Number of house meetings missed
-    pub missed_hms: i64,
+    pub missed_hms: Option<i64>,
     /// Number of upperclassmen packet signatures recieved
-    pub signatures: i64,
+    pub signatures: Option<i64>,
     /// Number of upperclassmen packet signatures for 100%
-    pub max_signatures: i64,
+    pub max_signatures: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema, sqlx::FromRow)]
@@ -59,29 +59,29 @@ pub struct Packet {
     /// Intro member's rit username
     pub username: Option<String>,
     /// Name of the intro member
-    pub name: Option<String>,
+    pub name: String,
     /// Number of upperclassmen packet signatures recieved
-    pub signatures: Option<i64>,
+    pub signatures: i64,
     /// Number of upperclassmen packet signatures for 100%
-    pub max_signatures: Option<i64>,
+    pub max_signatures: i64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct MemberStatus {
     /// User ID of the member
-    pub id: i32,
+    pub uid: i32,
     /// Name of the member
     pub name: String,
     /// CSH username
     pub username: String,
     /// Number of seminars attended
-    pub seminars: i64,
+    pub seminars: Option<i64>,
     /// Number of directorships attended
-    pub directorships: i64,
+    pub directorships: Option<i64>,
     /// Number of house meetings missed
-    pub missed_hms: i64,
+    pub missed_hms: Option<i64>,
     /// Number of major projects passed
-    pub major_projects: i64,
+    pub major_projects: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
