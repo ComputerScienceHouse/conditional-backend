@@ -5,6 +5,7 @@ pub mod attendance {
 
 pub mod forms {
     pub mod intro_evals;
+    pub mod coop;
 }
 
 // pub mod batch {

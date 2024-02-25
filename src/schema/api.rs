@@ -187,9 +187,10 @@ pub struct IntroForm {
     pub status: EvalStatusEnum,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct CoopSubmission {
-    pub uid: String,
-    pub date: NaiveDateTime,
+    pub id: i32,
+    pub year: i32,
     pub semester: SemesterEnum,
 }
 

@@ -2,6 +2,7 @@ use crate::{
     api::attendance::house::*,
     api::attendance::meeting::*,
     api::evals::routes::*,
+    api::forms::coop::*,
     api::forms::intro_evals::*,
     api::users::routes::*,
     ldap::client::LdapClient,
@@ -53,6 +54,9 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             get_member_evals,
             get_conditional,
             get_gatekeep,
+            get_coop_form,
+            get_coop_forms,
+            submit_coop_form,
         ),
         components(
             schemas(
@@ -72,6 +76,7 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                 user::LdapUser,
                 api::IntroStatus,
                 api::MemberStatus,
+                api::CoopSubmission,
             )
         ),
         modifiers(&SecurityAddon),
@@ -127,12 +132,23 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                     .service(modify_hm_attendance),
             )
             .service(
+                scope("/evals")
+                    // Evals routes
+                    .service(get_intro_member_evals)
+                    .service(get_member_evals)
+                    .service(get_conditional)
+                    .service(get_gatekeep),
+            )
+            .service(
                 scope("/forms")
                     // Intro forms
                     .service(get_user_intro_form)
                     .service(get_all_intro_forms)
                     .service(submit_intro_form)
-                    .service(update_intro_form),
+                    .service(update_intro_form)
+                    .service(get_coop_form)
+                    .service(get_coop_forms)
+                    .service(submit_coop_form),
             )
             .service(
                 scope("/users")
