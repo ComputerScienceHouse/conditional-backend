@@ -11,7 +11,7 @@ use actix_web::{
 use chrono::{Datelike, NaiveDate, Utc};
 use sqlx::{query_as, Pool, Postgres};
 
-fn split_packet(packets: &Vec<Packet>) -> (Vec<String>, Vec<String>, Vec<i64>, Vec<i64>) {
+fn split_packet(packets: &[Packet]) -> (Vec<String>, Vec<String>, Vec<i64>, Vec<i64>) {
     let ((usernames, names), (signatures, max_signatures)): (
         (Vec<String>, Vec<String>),
         (Vec<i64>, Vec<i64>),
@@ -59,7 +59,7 @@ async fn get_all_packets(packet_db: &Pool<Postgres>) -> Result<Vec<Packet>, User
 }
 
 async fn get_intro_evals_status(
-    packets: &Vec<Packet>,
+    packets: &[Packet],
     block: i32,
     conditional_db: &Pool<Postgres>,
 ) -> Result<Vec<IntroStatus>, UserError> {

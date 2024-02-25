@@ -4,7 +4,7 @@
 // names / usernames, while directorship attendance is stored in the database
 // as relations in one of two tables
 
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{NaiveDate};
 
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
