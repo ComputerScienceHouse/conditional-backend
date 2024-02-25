@@ -4,7 +4,7 @@
 // names / usernames, while directorship attendance is stored in the database
 // as relations in one of two tables
 
-use chrono::{NaiveDate};
+use chrono::NaiveDate;
 
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
@@ -157,12 +157,16 @@ pub struct HouseAttendance {
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct MajorProjectSubmission {
-    /// Username of member who submitted this major project
-    pub uid: String,
+    /// id of project
+    pub id: i32,
+    /// id of member who submitted this major project
+    pub uid: i32,
     /// Name of this major project
     pub name: String,
     /// Description of this major project
     pub description: Option<String>,
+    /// Passed?
+    pub status: MajorProjectStatusEnum,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]

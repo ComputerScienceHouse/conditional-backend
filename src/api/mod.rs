@@ -4,8 +4,9 @@ pub mod attendance {
 }
 
 pub mod forms {
-    pub mod intro_evals;
     pub mod coop;
+    pub mod intro_evals;
+    pub mod major_project;
 }
 
 // pub mod batch {

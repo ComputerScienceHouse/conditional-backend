@@ -4,6 +4,7 @@ use crate::{
     api::evals::routes::*,
     api::forms::coop::*,
     api::forms::intro_evals::*,
+    api::forms::major_projects::*,
     api::users::routes::*,
     ldap::client::LdapClient,
     ldap::*,
@@ -57,6 +58,9 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             get_coop_form,
             get_coop_forms,
             submit_coop_form,
+            get_user_major_projects,
+            get_all_major_projects,
+            submit_major_project,
         ),
         components(
             schemas(
@@ -77,6 +81,7 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                 api::IntroStatus,
                 api::MemberStatus,
                 api::CoopSubmission,
+                api::MajorProjectSubmission,
             )
         ),
         modifiers(&SecurityAddon),
@@ -148,7 +153,10 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                     .service(update_intro_form)
                     .service(get_coop_form)
                     .service(get_coop_forms)
-                    .service(submit_coop_form),
+                    .service(submit_coop_form)
+                    .service(get_user_major_projects)
+                    .service(get_all_major_projects)
+                    .service(submit_major_project),
             )
             .service(
                 scope("/users")
