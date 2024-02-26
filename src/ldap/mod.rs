@@ -60,7 +60,11 @@ pub async fn get_group_members_exact(
     let res = ldap_search(
         client,
         "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
-        format!("memberOf={}", group).as_str(),
+        format!(
+            "memberOf=cn={},cn=groups,cn=accounts,dc=csh,dc=rit,dc=edu",
+            group
+        )
+        .as_str(),
         None,
     )
     .await?;
