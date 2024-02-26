@@ -4,7 +4,7 @@ use crate::{
     api::evals::routes::*,
     api::forms::coop::*,
     api::forms::intro_evals::*,
-    api::forms::major_projects::*,
+    api::forms::major_project::*,
     api::users::routes::*,
     ldap::client::LdapClient,
     ldap::*,
