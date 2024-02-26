@@ -187,8 +187,6 @@ pub struct IntroForm {
     pub social_events: String,
     /// Other comments
     pub other_comments: String,
-    /// Status for user passing 6 weeks
-    pub status: EvalStatusEnum,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]

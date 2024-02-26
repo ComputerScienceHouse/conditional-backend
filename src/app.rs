@@ -37,10 +37,9 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             get_attendance_history,
             delete_meeting,
             modify_attendance,
-            get_user_intro_form,
+            get_intro_form,
             get_all_intro_forms,
             submit_intro_form,
-            update_intro_form,
             submit_hm_attendance,
             count_hm_absences,
             get_hm_absences_by_user,
@@ -75,7 +74,7 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                 api::Absences,
                 api::AbsenceWrapper,
                 api::DateWrapper,
-                IntroFormSubmission,
+                api::IntroForm,
                 api::FreshmanUpgrade,
                 user::LdapUser,
                 api::IntroStatus,
@@ -147,10 +146,9 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             .service(
                 scope("/forms")
                     // Intro forms
-                    .service(get_user_intro_form)
+                    .service(get_intro_form)
                     .service(get_all_intro_forms)
                     .service(submit_intro_form)
-                    .service(update_intro_form)
                     .service(get_coop_form)
                     .service(get_coop_forms)
                     .service(submit_coop_form)
