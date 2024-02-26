@@ -126,7 +126,14 @@ pub struct HouseMeetingAttendance {
     pub excuse: String,
 }
 
+impl PgHasArrayType for BatchCriterion {
+    fn array_type_info() -> PgTypeInfo {
+        PgTypeInfo::with_name("_batch_criterion_enum")
+    }
+}
+
 #[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Copy, ToSchema)]
+#[sqlx(type_name = "batch_criterion_enum")]
 pub enum BatchCriterion {
     Seminar,
     Directorship,
@@ -135,7 +142,14 @@ pub enum BatchCriterion {
     MissedHM,
 }
 
+impl PgHasArrayType for BatchComparison {
+    fn array_type_info() -> PgTypeInfo {
+        PgTypeInfo::with_name("_batch_comparison_enum")
+    }
+}
+
 #[derive(sqlx::Type, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Copy, ToSchema)]
+#[sqlx(type_name = "batch_comparison_enum")]
 pub enum BatchComparison {
     Greater,
     Equal,

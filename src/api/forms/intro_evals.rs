@@ -117,10 +117,10 @@ pub async fn submit_intro_form(
     let mut transaction = open_transaction(&state.db).await?;
     query!(
         r#"insert into intro_eval_data(uid, eval_block_id, social_events, other_comments, status)
-        values($1,$2,$3,$4,$5)
+        values($1::int4,$2::int4,$3::varchar,$4::varchar,$5::eval_status_enum)
         on conflict on constraint intro_eval_data_pkey do update
-        set social_events = $3, other_comments = $4
-        where intro_eval_data.uid = $1 and intro_eval_data.eval_block_id = $2"#,
+        set social_events = $3::varchar, other_comments = $4::varchar
+        where intro_eval_data.uid = $1::int4 and intro_eval_data.eval_block_id = $2::int4"#,
         user.get_uid(&state.db).await?,
         state.eval_block_id,
         body.social_events,

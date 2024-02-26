@@ -9,9 +9,9 @@ pub mod forms {
     pub mod major_project;
 }
 
-// pub mod batch {
-//     pub mod batch;
-// }
+pub mod batch {
+    pub mod batch;
+}
 
 pub mod evals {
     pub mod routes;

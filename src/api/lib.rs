@@ -46,8 +46,12 @@ pub async fn open_transaction(db: &Pool<Postgres>) -> Result<Transaction<Postgre
             log!(Level::Trace, "Acquired transaction");
             Ok(t)
         }
-        _ => {
-            log!(Level::Error, "Failed to open transaction");
+        Ok(None) => {
+            log!(Level::Error, "No transaction acquired");
+            Err(UserError::DatabaseError)
+        }
+        Err(e) => {
+            log!(Level::Error, "Failed to open transaction: {e}");
             Err(UserError::DatabaseError)
         }
     }

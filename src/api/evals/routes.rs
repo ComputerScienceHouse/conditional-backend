@@ -9,7 +9,7 @@ use actix_web::{
     HttpResponse, Responder,
 };
 use chrono::{Datelike, NaiveDate, Utc};
-use sqlx::{query_as, Pool, Postgres};
+use sqlx::{query_as, query_file_as, Pool, Postgres};
 
 fn split_packet(packets: &[Packet]) -> (Vec<String>, Vec<String>, Vec<i64>, Vec<i64>) {
     let ((usernames, names), (signatures, max_signatures)): (
@@ -64,74 +64,9 @@ async fn get_intro_evals_status(
     conditional_db: &Pool<Postgres>,
 ) -> Result<Vec<IntroStatus>, UserError> {
     let (usernames, names, signatures, max_signatures) = split_packet(packets);
-    let attendance = query_as!(
+    let attendance = query_file_as!(
         IntroStatus,
-        r#"select
-        s.name,
-        s.username,
-        s.uid,
-        s.seminars,
-        s.directorships,
-        packet.signatures,
-        packet.max_signatures,
-        count(ha.attendance_status)
-    filter(
-    where
-        ha.attendance_status = 'Absent') as missed_hms
-    from
-        (
-        select
-            u.name,
-            u.rit_username as username,
-            u.id as uid,
-            count(om.approved)
-       filter(
-        where
-            om.meeting_type = 'Seminar') as seminars,
-            count(om.approved)
-        filter(
-        where
-            om.meeting_type = 'Directorship') as directorships
-        from
-            "user" u
-        left join om_attendance oma on
-            u.id = oma.uid
-        left join other_meeting om on
-            oma.om_id = om.id
-        left join intro_eval_data ied on
-            u.id = ied.uid
-        left join intro_eval_block ieb on
-            ieb.id = ied.eval_block_id
-        where
-            ied.eval_block_id = $5 and ied.status != 'Passed' and om.datetime between ieb.start_date and ieb.end_date
-        group by
-            u.rit_username,
-            u.id) as s
-    left join hm_attendance ha on
-        s.uid = ha.uid
-    left join unnest($1::varchar[],
-        $2::varchar[],
-        $3::int8[],
-        $4::int8[]) as
-         packet(username,
-        name,
-        signatures,
-        max_signatures) on
-        packet.username = s.username
-    where
-        packet.name is not null
-        and s.seminars is not null
-        and s.directorships is not null
-        and packet.signatures is not null
-        and packet.max_signatures is not null
-    group by
-        s.name,
-        s.username,
-        s.uid,
-        s.seminars,
-        s.directorships,
-        packet.signatures,
-        packet.max_signatures"#,
+        "src/queries/get_intro_evals_status.sql",
         &usernames,
         &names,
         &signatures,
@@ -149,61 +84,9 @@ async fn get_member_evals_status(
     conditional_db: &Pool<Postgres>,
 ) -> Result<Vec<MemberStatus>, UserError> {
     let now = Utc::now();
-    let attendance = query_as!(
+    let attendance = query_file_as!(
         MemberStatus,
-        r#"select
-    s.name,
-    s.username,
-    s.uid,
-    s.seminars,
-    s.directorships,
-    s.missed_hms,
-    s.major_projects
-from
-    (
-    select
-        u.name,
-        u.rit_username as username,
-        u.id as uid,
-        count(om.approved)
-       filter(
-    where
-        om.meeting_type = 'Seminar') as seminars,
-        count(om.approved)
-        filter(
-    where
-        om.meeting_type = 'Directorship') as directorships,
-        count(ha.attendance_status)
-        filter(
-        where ha.attendance_status = 'Absent') as missed_hms,
-        count(mp.status)
-        filter(
-        where mp.status = 'Passed') as major_projects
-    from
-        "user" u
-    left join om_attendance oma on
-        u.id = oma.uid
-    left join other_meeting om on
-        oma.om_id = om.id
-    left join hm_attendance ha on
-        u.id = ha.uid
-    left join major_project mp on
-        u.id = mp.uid
-    where
-        not is_intro and om.datetime > $1
-        and u.csh_username in (select UNNEST($2::varchar[]))
-        and u.name in (select UNNEST($3::varchar[]))
-    group by
-        u.rit_username,
-        u.id) as s
-group by
-    s.name,
-    s.username,
-    s.uid,
-    s.seminars,
-    s.directorships,
-    s.missed_hms,
-    s.major_projects"#,
+        "src/queries/get_member_evals_status.sql",
         if now.month() > 5 {
             NaiveDate::from_ymd_opt(now.year(), 6, 1)
                 .unwrap()
@@ -223,6 +106,17 @@ group by
     Ok(attendance)
 }
 
+pub async fn get_intro_member_evals_helper(
+    state: &Data<AppState>,
+) -> Result<Vec<IntroStatus>, UserError> {
+    Ok(get_intro_evals_status(
+        &get_all_packets(&state.packet_db).await?,
+        state.eval_block_id,
+        &state.db,
+    )
+    .await?)
+}
+
 #[utoipa::path(
     context_path="/api/evals",
     tag = "Evals",
@@ -238,12 +132,7 @@ group by
 )]
 #[get("/intro", wrap = "CSHAuth::member_only()")]
 pub async fn get_intro_member_evals(state: Data<AppState>) -> Result<impl Responder, UserError> {
-    let attendance = get_intro_evals_status(
-        &get_all_packets(&state.packet_db).await?,
-        state.eval_block_id,
-        &state.db,
-    )
-    .await?;
+    let attendance = get_intro_member_evals_helper(&state).await?;
     Ok(HttpResponse::Ok().json(attendance))
 }
 

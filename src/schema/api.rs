@@ -11,7 +11,7 @@ use sqlx::FromRow;
 use utoipa::ToSchema;
 
 use super::db::{
-    AttendanceStatus, BatchComparison, BatchCondition, EvalStatusEnum, MajorProjectStatusEnum,
+    AttendanceStatus, BatchComparison, BatchCondition, BatchCriterion, MajorProjectStatusEnum,
     MeetingType, SemesterEnum,
 };
 
@@ -199,7 +199,7 @@ pub struct CoopSubmission {
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct BatchConditionSubmission {
     pub value: i32,
-    pub condition: BatchCondition,
+    pub criterion: BatchCriterion,
     pub comparison: BatchComparison,
 }
 
@@ -212,27 +212,14 @@ pub struct FreshmanBatchSubmission {
 pub struct BatchSubmission {
     pub name: String,
     pub conditions: Vec<BatchConditionSubmission>,
-    pub freshman_users: Vec<FreshmanBatchSubmission>,
     pub users: Vec<i32>,
 }
-#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct FreshmanPull {
-    pub fid: i32,
-    pub reason: String,
-    pub puller: String,
-}
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct MemberPull {
-    pub uid: String,
+pub struct BatchPull {
+    pub uid: i32,
     pub reason: String,
-    pub puller: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct PullRequests {
-    pub frosh: Vec<FreshmanPull>,
-    pub members: Vec<MemberPull>,
+    pub puller: i32,
 }
 
 #[derive(FromRow, Serialize, Deserialize, Clone, Debug, ToSchema, PartialEq, Eq)]
@@ -259,10 +246,9 @@ pub struct Batch {
     /// Name of the batch
     pub name: String,
     /// User ID of the creator
-    pub creator: User,
+    pub creator: i32,
     /// A vector of conditions formatted "{condition} {comparison} {value}"
     pub conditions: Vec<String>,
-    /// A vector of two comma separated values, name and CSH username.
-    /// If the user doesn't have an account, the second value will be empty.
-    pub members: Vec<String>,
+    /// A vector of user IDs
+    pub members: Vec<i32>,
 }

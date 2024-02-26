@@ -32,16 +32,22 @@ pub async fn get_coop_form(
     user: UserInfo,
 ) -> Result<impl Responder, UserError> {
     let now = Utc::now();
-    let form = query_as!(CoopSubmission, r#"
-        select u.id, c.year, c.semester as "semester: SemesterEnum" from "user" u left join coop c on u.id = c.uid where c.year > $1 and u.id = $2
+    let form = query_as!(
+        CoopSubmission,
+        r#"
+        select u.id, c.year, c.semester as "semester: SemesterEnum" from 
+        "user" u left join coop c on u.id = c.uid
+        where c.year > $1::int4 and u.id = $2::int4
         "#,
         if now.month() > 5 {
             now.year()
         } else {
-            now.year()-1
+            now.year() - 1
         },
         user.get_uid(&state.db).await?
-    ).fetch_optional(&state.db).await?;
+    )
+    .fetch_optional(&state.db)
+    .await?;
     Ok(HttpResponse::Ok().json(form))
 }
 
@@ -61,15 +67,20 @@ pub async fn get_coop_form(
 #[get("/coops", wrap = "CSHAuth::evals_only()")]
 pub async fn get_coop_forms(state: Data<AppState>) -> Result<impl Responder, UserError> {
     let now = Utc::now();
-    let form = query_as!(CoopSubmission, r#"
-        select u.id, c.year, c.semester as "semester: SemesterEnum" from "user" u left join coop c on u.id = c.uid where c.year > $1
+    let form = query_as!(
+        CoopSubmission,
+        r#"
+        select u.id, c.year, c.semester as "semester: SemesterEnum"
+        from "user" u left join coop c on u.id = c.uid where c.year > $1::int4
         "#,
         if now.month() > 5 {
             now.year()
         } else {
-            now.year()-1
+            now.year() - 1
         },
-    ).fetch_all(&state.db).await?;
+    )
+    .fetch_all(&state.db)
+    .await?;
     Ok(HttpResponse::Ok().json(form))
 }
 
@@ -95,12 +106,14 @@ pub async fn submit_coop_form(
 ) -> Result<impl Responder, UserError> {
     let mut transaction = open_transaction(&state.db).await?;
     query!(
-        r#"insert into coop(uid, year, semester) values($1,$2,$3) on conflict do nothing"#,
+        r#"insert into coop(uid, year, semester)
+        values($1::int4, $2::int4, $3::semester_enum)
+        on conflict do nothing"#,
         user.get_uid(&state.db).await?,
         Utc::now().year(),
         body.semester as SemesterEnum
     )
     .execute(&mut *transaction)
     .await?;
-    Ok(HttpResponse::NotImplemented().finish())
+    Ok(HttpResponse::Ok().finish())
 }

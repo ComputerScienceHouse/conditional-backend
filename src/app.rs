@@ -6,8 +6,8 @@ use crate::{
     api::forms::intro_evals::*,
     api::forms::major_project::*,
     api::users::routes::*,
+    ldap,
     ldap::client::LdapClient,
-    ldap::*,
     schema::{api, db},
 };
 use actix_web::web::{self, scope, Data};
@@ -76,7 +76,7 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                 api::DateWrapper,
                 api::IntroForm,
                 api::FreshmanUpgrade,
-                user::LdapUser,
+                ldap::user::LdapUser,
                 api::IntroStatus,
                 api::MemberStatus,
                 api::CoopSubmission,
