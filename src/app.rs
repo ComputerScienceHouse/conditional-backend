@@ -1,6 +1,7 @@
 use crate::{
     api::attendance::house::*,
     api::attendance::meeting::*,
+    api::batch::batch::*,
     api::evals::routes::*,
     api::forms::coop::*,
     api::forms::intro_evals::*,
@@ -60,6 +61,13 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             get_user_major_projects,
             get_all_major_projects,
             submit_major_project,
+            get_all_batches,
+            create_batch,
+            pull_user,
+            submit_batch_pr,
+            get_pull_requests,
+            pass_batch,
+            fail_batch
         ),
         components(
             schemas(
@@ -81,6 +89,10 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                 api::MemberStatus,
                 api::CoopSubmission,
                 api::MajorProjectSubmission,
+                api::Batch,
+                api::BatchSubmission,
+                api::BatchPull,
+                api::BatchConditionSubmission,
             )
         ),
         modifiers(&SecurityAddon),
@@ -134,6 +146,17 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                     .service(get_hm_absences_by_user)
                     .service(get_hm_attendance_by_user_evals)
                     .service(modify_hm_attendance),
+            )
+            .service(
+                scope("/batch")
+                    // Batch routes
+                    .service(get_all_batches)
+                    .service(create_batch)
+                    .service(pull_user)
+                    .service(submit_batch_pr)
+                    .service(get_pull_requests)
+                    .service(pass_batch)
+                    .service(fail_batch),
             )
             .service(
                 scope("/evals")

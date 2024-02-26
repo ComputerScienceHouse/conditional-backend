@@ -18,7 +18,8 @@ use actix_web::{
 use sqlx::{query, query_as, query_file_as, Postgres, Transaction};
 
 #[utoipa::path(
-    context_path="/api/evals/batch",
+    context_path="/api/batch",
+    tag = "Batch",
     responses(
         (status = 200, description = "Get all batches", body = Vec<Batch>),
         (status = 400, description = "Bad Request"),
@@ -123,7 +124,8 @@ async fn get_one_batch(state: &Data<AppState>, id: i32) -> Result<Batch, UserErr
 }
 
 #[utoipa::path(
-    context_path = "/api/evals/batch",
+    context_path = "/api/batch",
+    tag = "Batch",
     request_body = BatchSubmission,
     responses(
         (status = 200, description = "Create a batch"),
@@ -197,7 +199,8 @@ pub async fn create_batch(
 }
 
 #[utoipa::path(
-    context_path = "/api/evals/batch",
+    context_path = "/api/batch",
+    tag = "Batch",
     request_body = BatchPull,
     responses(
         (status = 200, description = "Pull user"),
@@ -227,7 +230,8 @@ pub async fn pull_user(
 }
 
 #[utoipa::path(
-    context_path = "/api/evals/batch",
+    context_path = "/api/batch",
+    tag = "Batch",
     request_body = BatchPull,
     responses(
         (status = 200, description = "Request that a user be pulled"),
@@ -260,7 +264,8 @@ pub async fn submit_batch_pr(
 }
 
 #[utoipa::path(
-    context_path = "/api/evals/batch",
+    context_path = "/api/batch",
+    tag = "Batch",
     responses(
         (status = 200, description = "Get all pull requests", body = Vec<BatchPull>),
         (status = 400, description = "Bad Request"),
@@ -302,7 +307,8 @@ async fn execute_batch_action<'a>(
 }
 
 #[utoipa::path(
-    context_path="/api/evals/batch",
+    context_path="/api/batch",
+    tag = "Batch",
     request_body = i32,
     responses(
         (status = 200, description = "Pass every user in the batch"),
@@ -327,7 +333,8 @@ pub async fn pass_batch(
 }
 
 #[utoipa::path(
-    context_path="/api/evals/batch",
+    context_path="/api/batch",
+    tag = "Batch",
     request_body = i32,
     responses(
         (status = 200, description = "Fail every user in the batch"),

@@ -11,8 +11,8 @@ use sqlx::FromRow;
 use utoipa::ToSchema;
 
 use super::db::{
-    AttendanceStatus, BatchComparison, BatchCondition, BatchCriterion, MajorProjectStatusEnum,
-    MeetingType, SemesterEnum,
+    AttendanceStatus, BatchComparison, BatchCriterion, MajorProjectStatusEnum, MeetingType,
+    SemesterEnum,
 };
 
 #[derive(Serialize, Deserialize)]
