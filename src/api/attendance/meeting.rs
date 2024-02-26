@@ -54,34 +54,6 @@ async fn insert_meeting_attendance<'a>(
     Ok(())
 }
 
-async fn get_meetings_this_session(
-    db: &Pool<Postgres>,
-    uuid: String,
-    meeting_type: MeetingType,
-    start_time: NaiveDateTime,
-) -> Result<i64, UserError> {
-    Ok(query_as!(
-        Count,
-        r#"SELECT
-            COUNT(*) as "count!"
-        FROM other_meeting om
-        LEFT JOIN om_attendance oa
-            ON om.id = oa.om_id
-        LEFT JOIN "user" u
-            ON u.id = oa.uid
-        WHERE om.approved
-        AND (u.ipa_unique_id = $1::varchar OR u.intro_id = $1::varchar)
-        AND om.meeting_type = $2::meeting_type_enum
-        AND om.datetime > $3::timestamp"#,
-        uuid,
-        meeting_type as MeetingType,
-        &start_time
-    )
-    .fetch_one(db)
-    .await?
-    .count)
-}
-
 async fn get_meetings(
     db: &Pool<Postgres>,
     uuid: String,

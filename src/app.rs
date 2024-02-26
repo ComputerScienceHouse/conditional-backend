@@ -1,7 +1,7 @@
 use crate::{
     api::attendance::house::*,
     api::attendance::meeting::*,
-    api::batch::batch::*,
+    api::batch::routes::*,
     api::evals::routes::*,
     api::forms::coop::*,
     api::forms::intro_evals::*,

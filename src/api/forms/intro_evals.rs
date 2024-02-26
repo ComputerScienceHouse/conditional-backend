@@ -3,15 +3,14 @@ use crate::app::AppState;
 use crate::auth::{CSHAuth, UserInfo};
 use crate::schema::api::IntroForm;
 use crate::schema::db::EvalStatusEnum;
-use crate::schema::{api, db};
+
 use actix_web::{
-    get, post, put,
+    get, post,
     web::{Data, Json},
     HttpResponse, Responder,
 };
-use serde::{Deserialize, Serialize};
-use sqlx::{query, query_as, Pool, Postgres};
-use utoipa::ToSchema;
+
+use sqlx::{query, query_as};
 
 #[utoipa::path(
     context_path = "/api/forms",

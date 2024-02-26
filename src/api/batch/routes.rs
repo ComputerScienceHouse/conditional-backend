@@ -17,6 +17,11 @@ use actix_web::{
 };
 use sqlx::{query, query_as, query_file_as, Postgres, Transaction};
 
+type PacketNonsense = (
+    (Vec<String>, Vec<i32>),
+    ((Vec<i64>, Vec<i64>), (Vec<i64>, Vec<i64>)),
+);
+
 #[utoipa::path(
     context_path="/api/batch",
     tag = "Batch",
@@ -33,10 +38,7 @@ async fn get_all_batches(state: Data<AppState>) -> Result<impl Responder, UserEr
         Ok(intros) => intros,
         Err(e) => return Err(e),
     };
-    let ((name, uid), ((seminars, directorships), (missed_hms, packet))): (
-        (Vec<String>, Vec<i32>),
-        ((Vec<i64>, Vec<i64>), (Vec<i64>, Vec<i64>)),
-    ) = intros
+    let ((name, uid), ((seminars, directorships), (missed_hms, packet))): PacketNonsense = intros
         .into_iter()
         .filter(|is| {
             is.seminars.is_some()
@@ -79,14 +81,11 @@ async fn get_all_batches(state: Data<AppState>) -> Result<impl Responder, UserEr
 }
 
 async fn get_one_batch(state: &Data<AppState>, id: i32) -> Result<Batch, UserError> {
-    let intros: Vec<IntroStatus> = match get_intro_member_evals_helper(&state).await {
+    let intros: Vec<IntroStatus> = match get_intro_member_evals_helper(state).await {
         Ok(intros) => intros,
         Err(e) => return Err(e),
     };
-    let ((name, uid), ((seminars, directorships), (missed_hms, packet))): (
-        (Vec<String>, Vec<i32>),
-        ((Vec<i64>, Vec<i64>), (Vec<i64>, Vec<i64>)),
-    ) = intros
+    let ((name, uid), ((seminars, directorships), (missed_hms, packet))): PacketNonsense = intros
         .into_iter()
         .filter(|is| {
             is.seminars.is_some()

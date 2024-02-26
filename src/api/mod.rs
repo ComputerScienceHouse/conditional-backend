@@ -10,7 +10,7 @@ pub mod forms {
 }
 
 pub mod batch {
-    pub mod batch;
+    pub mod routes;
 }
 
 pub mod evals {

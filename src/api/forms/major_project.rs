@@ -5,7 +5,7 @@ use crate::schema::api::MajorProjectSubmission;
 use crate::schema::db::MajorProjectStatusEnum;
 use crate::schema::{api, db};
 use actix_web::{
-    get, post, put,
+    get, post,
     web::{Data, Json},
     HttpResponse, Responder,
 };

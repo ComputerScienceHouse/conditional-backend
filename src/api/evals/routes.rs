@@ -11,11 +11,10 @@ use actix_web::{
 use chrono::{Datelike, NaiveDate, Utc};
 use sqlx::{query_as, query_file_as, Pool, Postgres};
 
+type PacketNonsense = ((Vec<String>, Vec<String>), (Vec<i64>, Vec<i64>));
+
 fn split_packet(packets: &[Packet]) -> (Vec<String>, Vec<String>, Vec<i64>, Vec<i64>) {
-    let ((usernames, names), (signatures, max_signatures)): (
-        (Vec<String>, Vec<String>),
-        (Vec<i64>, Vec<i64>),
-    ) = packets
+    let ((usernames, names), (signatures, max_signatures)): PacketNonsense = packets
         .iter()
         .map(|p| {
             (
@@ -109,12 +108,12 @@ async fn get_member_evals_status(
 pub async fn get_intro_member_evals_helper(
     state: &Data<AppState>,
 ) -> Result<Vec<IntroStatus>, UserError> {
-    Ok(get_intro_evals_status(
+    get_intro_evals_status(
         &get_all_packets(&state.packet_db).await?,
         state.eval_block_id,
         &state.db,
     )
-    .await?)
+    .await
 }
 
 #[utoipa::path(
