@@ -335,6 +335,18 @@ where
                         return Ok(response);
                     }
                 }
+            } else {
+                // Inject a user into the routes
+                if let Some(user_jwt) = (*USER_JWT).clone() {
+                    let (
+                        _token_header,
+                        _token_header_base64,
+                        token_payload,
+                        _token_payload_base64,
+                        _token_signature,
+                    ) = get_token_pieces(user_jwt).unwrap();
+                    req.extensions_mut().insert::<User>(token_payload);
+                }
             }
             let future = srv.call(req);
             let response = future.await?.map_into_left_body();
@@ -364,6 +376,7 @@ lazy_static! {
     static ref SECURITY_ENABLED: bool = env::var("SECURITY_ENABLED")
         .map(|x| x.parse::<bool>().unwrap_or(true))
         .unwrap_or(true);
+    static ref USER_JWT: Option<String> = env::var("USER_JWT").ok();
 }
 
 impl CSHAuth {
@@ -401,13 +414,6 @@ impl CSHAuth {
             access_level: AccessLevel::MemberAndIntro,
         }
     }
-    pub fn enabled() -> Self {
-        Self {
-            enabled: *SECURITY_ENABLED,
-            access_level: AccessLevel::MemberAndIntro,
-        }
-    }
-
     pub fn intro_only() -> Self {
         Self {
             enabled: *SECURITY_ENABLED,

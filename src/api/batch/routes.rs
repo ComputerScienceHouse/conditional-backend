@@ -32,7 +32,7 @@ type PacketNonsense = (
         (status = 500, description = "Internal Server Error"),
     )
 )]
-#[get("/", wrap = "CSHAuth::enabled()")]
+#[get("/", wrap = "CSHAuth::member_and_intro()")]
 async fn get_all_batches(state: Data<AppState>) -> Result<impl Responder, UserError> {
     let intros: Vec<IntroStatus> = match get_intro_member_evals_helper(&state).await {
         Ok(intros) => intros,
@@ -133,7 +133,7 @@ async fn get_one_batch(state: &Data<AppState>, id: i32) -> Result<Batch, UserErr
         (status = 500, description = "Internal Server Error"),
     )
 )]
-#[post("/", wrap = "CSHAuth::enabled()")]
+#[post("/", wrap = "CSHAuth::member_only()")]
 pub async fn create_batch(
     state: Data<AppState>,
     user: UserInfo,
@@ -239,7 +239,7 @@ pub async fn pull_user(
         (status = 500, description = "Internal Server Error"),
     )
 )]
-#[post("/pr", wrap = "CSHAuth::enabled()")]
+#[post("/pr", wrap = "CSHAuth::member_only()")]
 pub async fn submit_batch_pr(
     state: Data<AppState>,
     user: UserInfo,
