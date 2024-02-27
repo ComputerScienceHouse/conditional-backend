@@ -54,6 +54,20 @@ pub struct IntroStatus {
     pub max_signatures: Option<i64>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
+pub struct GatekeepStatus {
+    /// User ID of the member
+    pub uid: i32,
+    /// Name of the member
+    pub name: String,
+    /// Number of seminars attended
+    pub seminars: Option<i64>,
+    /// Number of directorships attended
+    pub directorships: Option<i64>,
+    /// Number of house meetings missed
+    pub missed_hms: Option<i64>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema, sqlx::FromRow)]
 pub struct Packet {
     /// Intro member's rit username
@@ -72,8 +86,6 @@ pub struct MemberStatus {
     pub uid: i32,
     /// Name of the member
     pub name: String,
-    /// CSH username
-    pub username: String,
     /// Number of seminars attended
     pub seminars: Option<i64>,
     /// Number of directorships attended

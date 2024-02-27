@@ -2,7 +2,7 @@ use crate::api::lib::UserError;
 use crate::app::AppState;
 use crate::auth::CSHAuth;
 use crate::ldap::{get_group_members_exact, get_user};
-use crate::schema::api::{IntroStatus, MemberStatus, Packet};
+use crate::schema::api::{GatekeepStatus, IntroStatus, MemberStatus, Packet};
 use actix_web::{
     get,
     web::{Data, Path},
@@ -182,7 +182,7 @@ pub async fn get_conditional() -> impl Responder {
     context_path="/api/evals",
     tag = "Evals",
     responses(
-        (status = 200, description = "Get gatekeep status for a specific user", body = MemberStatus),
+        (status = 200, description = "Get gatekeep status for a specific user", body = GatekeepStatus),
         (status = 400, description = "Bad Request"),
         (status = 401, description = "Unauthorized"),
         (status = 500, description = "Internal Server Error"),
@@ -196,14 +196,20 @@ pub async fn get_gatekeep(
     path: Path<(String,)>,
     state: Data<AppState>,
 ) -> Result<impl Responder, UserError> {
-    let (user,) = path.into_inner();
-    let (uids, names): (Vec<String>, Vec<String>) = get_user(&state.ldap, &user)
+    let (uids, names): (Vec<String>, Vec<String>) = get_user(&state.ldap, path.0.as_str())
         .await
         .map_err(|_| UserError::ServerError)?
         .iter()
         .map(|u| (u.uid.clone(), u.cn.clone()))
         .unzip();
-    let status = get_member_evals_status(&uids, &names, &state.db).await?;
+    let status = query_file_as!(
+        GatekeepStatus,
+        "src/queries/get_gatekeep.sql",
+        &uids,
+        &names,
+    )
+    .fetch_one(&state.db)
+    .await?;
 
     Ok(HttpResponse::Ok().json(status))
 }

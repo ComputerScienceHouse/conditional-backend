@@ -87,6 +87,7 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                 ldap::user::LdapUser,
                 api::IntroStatus,
                 api::MemberStatus,
+                api::GatekeepStatus,
                 api::CoopSubmission,
                 api::MajorProjectSubmission,
                 api::Batch,
