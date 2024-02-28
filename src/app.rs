@@ -94,6 +94,7 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                 api::BatchSubmission,
                 api::BatchPull,
                 api::BatchConditionSubmission,
+                db::SemesterEnum,
             )
         ),
         modifiers(&SecurityAddon),

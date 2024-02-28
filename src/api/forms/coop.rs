@@ -34,11 +34,8 @@ pub async fn get_coop_form(
     let now = Utc::now();
     let form = query_as!(
         CoopSubmission,
-        r#"
-        select u.id, c.year, c.semester as "semester: SemesterEnum" from 
-        "user" u left join coop c on u.id = c.uid
-        where c.year > $1::int4 and u.id = $2::int4
-        "#,
+        r#"select uid, year, semester as "semester: SemesterEnum" from 
+        coop where year >= $1::int4 and uid = $2::int4"#,
         if now.month() > 5 {
             now.year()
         } else {
@@ -69,10 +66,8 @@ pub async fn get_coop_forms(state: Data<AppState>) -> Result<impl Responder, Use
     let now = Utc::now();
     let form = query_as!(
         CoopSubmission,
-        r#"
-        select u.id, c.year, c.semester as "semester: SemesterEnum"
-        from "user" u left join coop c on u.id = c.uid where c.year > $1::int4
-        "#,
+        r#"select uid, year, semester as "semester: SemesterEnum"
+        from coop where year >= $1::int4"#,
         if now.month() > 5 {
             now.year()
         } else {
@@ -105,15 +100,21 @@ pub async fn submit_coop_form(
     body: Json<CoopSubmission>,
 ) -> Result<impl Responder, UserError> {
     let mut transaction = open_transaction(&state.db).await?;
+    let now = Utc::now();
     query!(
         r#"insert into coop(uid, year, semester)
         values($1::int4, $2::int4, $3::semester_enum)
-        on conflict do nothing"#,
+        on conflict do nothing returning uid"#,
         user.get_uid(&state.db).await?,
-        Utc::now().year(),
+        if now.month() > 5 {
+            now.year()
+        } else {
+            now.year() - 1
+        },
         body.semester as SemesterEnum
     )
-    .execute(&mut *transaction)
+    .fetch_optional(&mut *transaction)
     .await?;
+    transaction.commit().await?;
     Ok(HttpResponse::Ok().finish())
 }

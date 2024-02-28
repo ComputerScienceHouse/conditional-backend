@@ -203,7 +203,7 @@ pub struct IntroForm {
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct CoopSubmission {
-    pub id: i32,
+    pub uid: i32,
     pub year: i32,
     pub semester: SemesterEnum,
 }
