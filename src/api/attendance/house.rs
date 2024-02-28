@@ -5,10 +5,10 @@ use actix_web::{
 };
 use chrono::{Datelike, NaiveDate, Utc};
 use serde::Serialize;
-use sqlx::{query, query_as};
+use sqlx::{query, query_as, Connection};
 
 use crate::{
-    api::lib::{open_transaction, UserError},
+    api::lib::UserError,
     app::AppState,
     auth::{CSHAuth, UserInfo},
     ldap::get_group_members_exact,
@@ -54,34 +54,36 @@ pub async fn submit_hm_attendance(
     state: Data<AppState>,
     body: Json<HouseAttendance>,
 ) -> Result<impl Responder, UserError> {
-    let mut transaction = open_transaction(&state.db).await?;
+    let mut conn = state.db.acquire().await?;
+    conn.transaction(|txn| {
+        Box::pin(async move {
+            let id = query_as!(
+                ID,
+                "INSERT INTO house_meeting(date) VALUES ($1) RETURNING id",
+                body.date
+            )
+            .fetch_one(&mut **txn)
+            .await
+            .unwrap();
+            let id_vec = vec![id.id; body.attendees.len()];
+            let names: Vec<i32> = body.attendees.iter().map(|a| a.uid).collect();
+            let statuses: Vec<AttendanceStatus> =
+                body.attendees.iter().map(|a| a.att_status).collect();
 
-    let id = query_as!(
-        ID,
-        "INSERT INTO house_meeting(date) VALUES ($1) RETURNING id",
-        body.date
-    )
-    .fetch_one(&mut *transaction)
+            query!(
+                "INSERT INTO hm_attendance (uid, house_meeting_id, attendance_status) SELECT uid, \
+                 house_meeting_id, attendance_status as \"attendance_status: AttendanceStatus\" \
+                 FROM UNNEST($1::int4[], $2::int4[], $3::hm_attendance_status_enum[]) as a(uid, \
+                 house_meeting_id, attendance_status)",
+                names.as_slice(),
+                id_vec.as_slice(),
+                statuses.as_slice() as &[AttendanceStatus]
+            )
+            .execute(&mut **txn)
+            .await
+        })
+    })
     .await?;
-
-    let id_vec = vec![id.id; body.attendees.len()];
-    let names: Vec<i32> = body.attendees.iter().map(|a| a.uid).collect();
-    let statuses: Vec<AttendanceStatus> = body.attendees.iter().map(|a| a.att_status).collect();
-
-    query!(
-        "INSERT INTO hm_attendance (uid, house_meeting_id, attendance_status) SELECT uid, \
-         house_meeting_id, attendance_status as \"attendance_status: AttendanceStatus\" FROM \
-         UNNEST($1::int4[], $2::int4[], $3::hm_attendance_status_enum[]) as a(uid, \
-         house_meeting_id, attendance_status)",
-        names.as_slice(),
-        id_vec.as_slice(),
-        statuses.as_slice() as &[AttendanceStatus]
-    )
-    .execute(&mut *transaction)
-    .await?;
-
-    // Commit transaction
-    transaction.commit().await?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -100,7 +102,7 @@ pub async fn submit_hm_attendance(
 )]
 #[get("/house/users", wrap = "CSHAuth::member_only()")]
 pub async fn count_hm_absences(state: Data<AppState>) -> Result<impl Responder, UserError> {
-    let mut transaction = open_transaction(&state.db).await?;
+    let now = Utc::now();
     let users = get_group_members_exact(&state.ldap, "active").await;
     let usernames: Vec<_>;
     if let Ok(members) = users {
@@ -109,31 +111,38 @@ pub async fn count_hm_absences(state: Data<AppState>) -> Result<impl Responder, 
         log::error!("LDAP is unresponsive");
         return Err(UserError::ServerError);
     }
-    let uids: Vec<_> = query_as!(
-        ID,
-        "select id from \"user\" where rit_username in (select unnest($1::varchar[]))",
-        usernames.as_slice()
-    )
-    .fetch_all(&mut *transaction)
-    .await?
-    .iter_mut()
-    .map(|x| x.id)
-    .collect();
-    let now = Utc::now();
-    let counts = query_as!(
-        Absences,
-        "select uid, count(*) from hm_attendance hma left join house_meeting hm on \
-         hma.house_meeting_id = hm.id where attendance_status = 'Absent' and date > $1 group by \
-         uid having uid in (select unnest($2::int4[]))",
-        if now.month() > 5 {
-            NaiveDate::from_ymd_opt(now.year(), 6, 1).unwrap()
-        } else {
-            NaiveDate::from_ymd_opt(now.year() - 1, 6, 1).unwrap()
-        },
-        uids.as_slice()
-    )
-    .fetch_all(&mut *transaction)
-    .await?;
+    let mut conn = state.db.acquire().await?;
+    let counts = conn
+        .transaction(|txn| {
+            Box::pin(async move {
+                let uids: Vec<_> = query_as!(
+                    ID,
+                    "select id from \"user\" where rit_username in (select unnest($1::varchar[]))",
+                    usernames.as_slice()
+                )
+                .fetch_all(&mut **txn)
+                .await?
+                .iter_mut()
+                .map(|x| x.id)
+                .collect();
+
+                query_as!(
+                    Absences,
+                    "select uid, count(*) from hm_attendance hma left join house_meeting hm on \
+                     hma.house_meeting_id = hm.id where attendance_status = 'Absent' and date > \
+                     $1 group by uid having uid in (select unnest($2::int4[]))",
+                    if now.month() > 5 {
+                        NaiveDate::from_ymd_opt(now.year(), 6, 1).unwrap()
+                    } else {
+                        NaiveDate::from_ymd_opt(now.year() - 1, 6, 1).unwrap()
+                    },
+                    uids.as_slice()
+                )
+                .fetch_all(&mut **txn)
+                .await
+            })
+        })
+        .await?;
     Ok(HttpResponse::Ok().json(counts))
 }
 
@@ -236,17 +245,21 @@ pub async fn modify_hm_attendance(
     state: Data<AppState>,
     body: Json<HouseMeetingAttendanceUpdate>,
 ) -> Result<impl Responder, UserError> {
-    let mut transaction = open_transaction(&state.db).await?;
-    query!(
-        "UPDATE hm_attendance SET attendance_status = $1, excuse = $2 WHERE uid = $3 AND \
-         house_meeting_id = $4",
-        body.att_status as AttendanceStatus,
-        body.excuse,
-        body.uid,
-        body.meeting_id
-    )
-    .execute(&mut *transaction)
+    let mut conn = state.db.acquire().await?;
+    conn.transaction(|txn| {
+        Box::pin(async move {
+            query!(
+                "UPDATE hm_attendance SET attendance_status = $1, excuse = $2 WHERE uid = $3 AND \
+                 house_meeting_id = $4",
+                body.att_status as AttendanceStatus,
+                body.excuse,
+                body.uid,
+                body.meeting_id
+            )
+            .execute(&mut **txn)
+            .await
+        })
+    })
     .await?;
-    transaction.commit().await?;
     Ok(HttpResponse::Ok().finish())
 }

@@ -1,8 +1,5 @@
 use crate::{
-    api::{
-        evals::routes::get_intro_member_evals_helper,
-        lib::{open_transaction, UserError},
-    },
+    api::{evals::routes::get_intro_member_evals_helper, lib::UserError},
     app::AppState,
     auth::{CSHAuth, UserInfo},
     schema::{
@@ -15,7 +12,7 @@ use actix_web::{
     web::{Data, Json},
     HttpResponse, Responder,
 };
-use sqlx::{query, query_as, query_file_as, Postgres, Transaction};
+use sqlx::{query, query_as, query_file_as, Connection, Postgres, Transaction};
 
 type PacketNonsense = (
     (Vec<String>, Vec<i32>),
@@ -139,61 +136,63 @@ pub async fn create_batch(
     user: UserInfo,
     body: Json<BatchSubmission>,
 ) -> Result<impl Responder, UserError> {
-    let mut transaction = open_transaction(&state.db).await?;
+    let mut conn = state.db.acquire().await?;
+    conn.transaction(|txn| {
+        Box::pin(async move {
+            // create batch
+            let id = query_as!(
+                db::ID,
+                "INSERT INTO batch(name, creator, approved) VALUES ($1::varchar, $2::int4, false) \
+                 RETURNING id",
+                body.name,
+                user.get_uid(&state.db).await?
+            )
+            .fetch_one(&mut **txn)
+            .await?;
 
-    // create batch
-    let id = query_as!(
-        db::ID,
-        "INSERT INTO batch(name, creator, approved) VALUES ($1::varchar, $2::int4, false) RETURNING id",
-        body.name,
-        user.get_uid(&state.db).await?
-    )
-    .fetch_one(&mut *transaction)
+            // add criteria
+            let values = body.conditions.iter().map(|a| a.value).collect::<Vec<_>>();
+            let criteria = body
+                .conditions
+                .iter()
+                .map(|a| a.criterion)
+                .collect::<Vec<_>>();
+            let comparisons = body
+                .conditions
+                .iter()
+                .map(|a| a.comparison)
+                .collect::<Vec<_>>();
+            let batch_ids = vec![id.id; values.len()];
+
+            query!(
+                "INSERT INTO batch_condition(value, criterion, comparison, batch_id) SELECT value as \
+                 \"value!\", criterion AS \"criterion!: BatchCriterion\", comparison AS \
+                 \"comparison!:_\", batch_id as \"batch_id!\" FROM UNNEST($1::int4[], \
+                 $2::batch_criterion_enum[], $3::batch_comparison_enum[], $4::int4[]) as a(value, \
+                 criterion, comparison, batch_id)",
+                values.as_slice(),
+                criteria.as_slice() as _,
+                comparisons.as_slice() as _,
+                batch_ids.as_slice()
+            )
+            .execute(&mut **txn)
+            .await?;
+
+            // add users
+            let uids = &body.users;
+            let batch_ids = vec![id.id; uids.len()];
+
+            query!(
+                "INSERT INTO batch_user(uid, batch_id) SELECT fid, batch_id FROM UNNEST($1::int4[], \
+                 $2::int4[]) as a(fid, batch_id)",
+                uids.as_slice(),
+                batch_ids.as_slice()
+            )
+            .execute(&mut **txn)
+            .await
+        })
+    })
     .await?;
-
-    // add criteria
-    let values = body.conditions.iter().map(|a| a.value).collect::<Vec<_>>();
-    let criteria = body
-        .conditions
-        .iter()
-        .map(|a| a.criterion)
-        .collect::<Vec<_>>();
-    let comparisons = body
-        .conditions
-        .iter()
-        .map(|a| a.comparison)
-        .collect::<Vec<_>>();
-    let batch_ids = vec![id.id; values.len()];
-
-    query!(
-        "INSERT INTO batch_condition(value, criterion, comparison, batch_id) SELECT value as \
-         \"value!\", criterion AS \"criterion!: BatchCriterion\", comparison AS \
-         \"comparison!:_\", batch_id as \"batch_id!\" FROM UNNEST($1::int4[], \
-         $2::batch_criterion_enum[], $3::batch_comparison_enum[], $4::int4[]) as a(value, \
-         criterion, comparison, batch_id)",
-        values.as_slice(),
-        criteria.as_slice() as _,
-        comparisons.as_slice() as _,
-        batch_ids.as_slice()
-    )
-    .execute(&mut *transaction)
-    .await?;
-
-    // add users
-    let uids = &body.users;
-    let batch_ids = vec![id.id; uids.len()];
-
-    query!(
-        "INSERT INTO batch_user(uid, batch_id) SELECT fid, batch_id FROM UNNEST($1::int4[], \
-         $2::int4[]) as a(fid, batch_id)",
-        uids.as_slice(),
-        batch_ids.as_slice()
-    )
-    .execute(&mut *transaction)
-    .await?;
-
-    // Commit transaction
-    transaction.commit().await?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -213,18 +212,19 @@ pub async fn pull_user(
     state: Data<AppState>,
     body: Json<BatchPull>,
 ) -> Result<impl Responder, UserError> {
-    let mut transaction = open_transaction(&state.db).await?;
-
-    query!(
-        "update batch_pull set approved = true where uid = $1::int4 and puller = $2::int4",
-        body.uid,
-        body.puller
-    )
-    .execute(&mut *transaction)
+    let mut conn = state.db.acquire().await?;
+    conn.transaction(|txn| {
+        Box::pin(async move {
+            query!(
+                "update batch_pull set approved = true where uid = $1::int4 and puller = $2::int4",
+                body.uid,
+                body.puller
+            )
+            .execute(&mut **txn)
+            .await
+        })
+    })
     .await?;
-
-    // Commit transaction
-    transaction.commit().await?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -245,20 +245,22 @@ pub async fn submit_batch_pr(
     user: UserInfo,
     body: Json<BatchPull>,
 ) -> Result<impl Responder, UserError> {
-    let mut transaction = open_transaction(&state.db).await?;
-
-    query!(
-        "insert into batch_pull(uid, puller, reason, approved) values($1::int4, $2::int4, $3::varchar, false) on \
-         conflict on constraint batch_pull_pkey do update set reason = $3::varchar",
-        body.uid,
-        user.get_uid(&state.db).await?,
-        body.reason,
-    )
-    .execute(&mut *transaction)
+    let mut conn = state.db.acquire().await?;
+    conn.transaction(|txn| {
+        Box::pin(async move {
+            query!(
+                "insert into batch_pull(uid, puller, reason, approved) values($1::int4, $2::int4, \
+                 $3::varchar, false) on conflict on constraint batch_pull_pkey do update set reason = \
+                 $3::varchar",
+                body.uid,
+                user.get_uid(&state.db).await?,
+                body.reason,
+            )
+            .execute(&mut **txn)
+            .await
+        })
+    })
     .await?;
-
-    // Commit transaction
-    transaction.commit().await?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -284,9 +286,9 @@ pub async fn get_pull_requests(state: Data<AppState>) -> Result<impl Responder, 
 async fn execute_batch_action<'a>(
     batch_id: i32,
     state: &Data<AppState>,
-    transaction: Transaction<'a, Postgres>,
+    transaction: &mut Transaction<'a, Postgres>,
     action: EvalStatusEnum,
-) -> Result<Transaction<'a, Postgres>, UserError> {
+) -> Result<(), UserError> {
     let batch = get_one_batch(state, batch_id).await?;
 
     query!(
@@ -299,10 +301,9 @@ async fn execute_batch_action<'a>(
         &batch.members,
         action as EvalStatusEnum,
     )
-    .execute(&state.db)
+    .execute(&mut **transaction)
     .await?;
-
-    Ok(transaction)
+    Ok(())
 }
 
 #[utoipa::path(
@@ -321,13 +322,13 @@ pub async fn pass_batch(
     state: Data<AppState>,
     body: Json<i32>,
 ) -> Result<impl Responder, UserError> {
-    let mut transaction = open_transaction(&state.db).await?;
-
-    transaction = execute_batch_action(*body, &state, transaction, EvalStatusEnum::Passed).await?;
-
-    // Commit transaction
-    transaction.commit().await?;
-
+    let mut conn = state.db.acquire().await?;
+    conn.transaction(|txn| {
+        Box::pin(
+            async move { execute_batch_action(*body, &state, txn, EvalStatusEnum::Passed).await },
+        )
+    })
+    .await?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -347,12 +348,12 @@ pub async fn fail_batch(
     state: Data<AppState>,
     body: Json<i32>,
 ) -> Result<impl Responder, UserError> {
-    let mut transaction = open_transaction(&state.db).await?;
-
-    transaction = execute_batch_action(*body, &state, transaction, EvalStatusEnum::Failed).await?;
-
-    // Commit transaction
-    transaction.commit().await?;
-
+    let mut conn = state.db.acquire().await?;
+    conn.transaction(|txn| {
+        Box::pin(
+            async move { execute_batch_action(*body, &state, txn, EvalStatusEnum::Failed).await },
+        )
+    })
+    .await?;
     Ok(HttpResponse::Ok().finish())
 }

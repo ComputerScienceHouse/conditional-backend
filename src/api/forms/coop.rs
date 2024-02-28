@@ -4,10 +4,10 @@ use actix_web::{
     HttpResponse, Responder,
 };
 use chrono::{Datelike, Utc};
-use sqlx::{query, query_as};
+use sqlx::{query, query_as, Connection};
 
 use crate::{
-    api::lib::{open_transaction, UserError},
+    api::lib::UserError,
     app::AppState,
     auth::{CSHAuth, UserInfo},
     schema::{api::CoopSubmission, db::SemesterEnum},
@@ -99,22 +99,26 @@ pub async fn submit_coop_form(
     user: UserInfo,
     body: Json<CoopSubmission>,
 ) -> Result<impl Responder, UserError> {
-    let mut transaction = open_transaction(&state.db).await?;
     let now = Utc::now();
-    query!(
-        r#"insert into coop(uid, year, semester)
-        values($1::int4, $2::int4, $3::semester_enum)
-        on conflict do nothing returning uid"#,
-        user.get_uid(&state.db).await?,
-        if now.month() > 5 {
-            now.year()
-        } else {
-            now.year() - 1
-        },
-        body.semester as SemesterEnum
-    )
-    .fetch_optional(&mut *transaction)
+    let mut conn = state.db.acquire().await?;
+    conn.transaction(|txn| {
+        Box::pin(async move {
+            query!(
+                r#"insert into coop(uid, year, semester)
+                values($1::int4, $2::int4, $3::semester_enum)
+                on conflict do nothing returning uid"#,
+                user.get_uid(&state.db).await?,
+                if now.month() > 5 {
+                    now.year()
+                } else {
+                    now.year() - 1
+                },
+                body.semester as SemesterEnum
+            )
+            .fetch_optional(&mut **txn)
+            .await
+        })
+    })
     .await?;
-    transaction.commit().await?;
     Ok(HttpResponse::Ok().finish())
 }

@@ -1,4 +1,4 @@
-use crate::api::lib::{open_transaction, UserError};
+use crate::api::lib::UserError;
 use crate::app::AppState;
 use crate::auth::{CSHAuth, UserInfo};
 use crate::schema::api::MajorProjectSubmission;
@@ -10,7 +10,7 @@ use actix_web::{
     HttpResponse, Responder,
 };
 use chrono::{Datelike, NaiveDate, Utc};
-use sqlx::{query, query_as};
+use sqlx::{query, query_as, Connection};
 
 #[utoipa::path(
     context_path = "/api/forms",
@@ -120,17 +120,21 @@ pub async fn submit_major_project(
     user: UserInfo,
     body: Json<MajorProjectSubmission>,
 ) -> Result<impl Responder, UserError> {
-    let mut transaction = open_transaction(&state.db).await?;
-    query!(
-        r#"insert into major_project(uid, name, description, date, status) values($1,$2,$3,$4,$5)"#,
-        user.get_uid(&state.db).await?,
-        body.name,
-        body.description,
-        Utc::now().date_naive(),
-        MajorProjectStatusEnum::Pending as MajorProjectStatusEnum
-    )
-    .execute(&mut *transaction)
+    let mut conn = state.db.acquire().await?;
+    conn.transaction(|txn| {
+        Box::pin(async move {
+            query!(
+                r#"insert into major_project(uid, name, description, date, status) values($1,$2,$3,$4,$5)"#,
+                user.get_uid(&state.db).await?,
+                body.name,
+                body.description,
+                Utc::now().date_naive(),
+                MajorProjectStatusEnum::Pending as MajorProjectStatusEnum
+            )
+            .execute(&mut **txn)
+            .await
+        })
+    })
     .await?;
-    transaction.commit().await?;
     Ok(HttpResponse::Ok().finish())
 }

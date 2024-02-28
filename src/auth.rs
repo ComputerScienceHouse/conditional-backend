@@ -4,6 +4,7 @@ use actix_web::{
     FromRequest, HttpMessage, HttpResponse,
 };
 use anyhow::{anyhow, Result};
+use async_mutex::Mutex;
 use base64::{engine::general_purpose, Engine as _};
 use futures::future::LocalBoxFuture;
 use lazy_static::lazy_static;
@@ -18,6 +19,7 @@ use openssl::{
 use reqwest::IntoUrl;
 use serde::{Deserialize, Serialize};
 use sqlx::{query_as, Pool, Postgres};
+use std::env;
 use std::{
     collections::HashMap,
     future::{ready, Ready},
@@ -25,15 +27,12 @@ use std::{
     sync::Arc,
     task::{Context, Poll},
 };
-use std::{env, sync::Mutex};
 
-use crate::api::lib::UserError;
+type JwtCache = Arc<Mutex<HashMap<String, PKey<Public>>>>;
 
 lazy_static! {
-    static ref CSH_JWT_CACHE: Arc<Mutex<HashMap<String, PKey<Public>>>> =
-        Arc::new(Mutex::new(HashMap::new()));
-    static ref INTRO_JWT_CACHE: Arc<Mutex<HashMap<String, PKey<Public>>>> =
-        Arc::new(Mutex::new(HashMap::new()));
+    static ref CSH_JWT_CACHE: JwtCache = Arc::new(Mutex::new(HashMap::new()));
+    static ref INTRO_JWT_CACHE: JwtCache = Arc::new(Mutex::new(HashMap::new()));
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -131,7 +130,7 @@ impl User {
         }
     }
 
-    fn get_cache_info(&self) -> (Arc<Mutex<HashMap<String, PKey<Public>>>>, &str) {
+    fn get_cache_info(&self) -> (JwtCache, &str) {
         match self {
             User::CshUser { .. } => (
                 CSH_JWT_CACHE.clone(),
@@ -151,9 +150,9 @@ impl User {
         }
     }
 
-    pub async fn get_uid(&self, db: &Pool<Postgres>) -> Result<i32, UserError> {
+    pub async fn get_uid(&self, db: &Pool<Postgres>) -> Result<i32, sqlx::Error> {
         let uuid = self.get_uuid();
-        Ok(*query_as!(
+        query_as!(
             crate::schema::db::ID,
             r#"
                 SELECT id
@@ -164,7 +163,8 @@ impl User {
             uuid
         )
         .fetch_one(db)
-        .await?)
+        .await
+        .map(|r| r.id)
     }
 }
 
@@ -267,7 +267,7 @@ async fn verify_token(
 
     let (data_cache, cert_url) = payload.get_cache_info();
 
-    let mut cache = data_cache.lock().unwrap();
+    let mut cache = data_cache.lock().await;
     let pkey = match cache.get(header.kid.as_str()) {
         Some(x) => Some(x),
         None => {

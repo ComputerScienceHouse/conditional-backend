@@ -5,7 +5,6 @@ use actix_web::{
 };
 use derive_more::{Display, Error};
 use log::{log, Level};
-use sqlx::{Pool, Postgres, Transaction};
 
 /// Error wrapper around sqlx::Error and actix_web::error::ResponseError
 #[derive(Debug, Display, Error)]
@@ -37,22 +36,5 @@ impl From<sqlx::Error> for UserError {
     fn from(value: sqlx::Error) -> Self {
         log!(Level::Error, "{}", value.to_string());
         UserError::DatabaseError
-    }
-}
-
-pub async fn open_transaction(db: &Pool<Postgres>) -> Result<Transaction<Postgres>, UserError> {
-    match db.try_begin().await {
-        Ok(Some(t)) => {
-            log!(Level::Trace, "Acquired transaction");
-            Ok(t)
-        }
-        Ok(None) => {
-            log!(Level::Error, "No transaction acquired");
-            Err(UserError::DatabaseError)
-        }
-        Err(e) => {
-            log!(Level::Error, "Failed to open transaction: {e}");
-            Err(UserError::DatabaseError)
-        }
     }
 }

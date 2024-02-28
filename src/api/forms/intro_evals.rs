@@ -1,4 +1,4 @@
-use crate::api::lib::{open_transaction, UserError};
+use crate::api::lib::UserError;
 use crate::app::AppState;
 use crate::auth::{CSHAuth, UserInfo};
 use crate::schema::api::IntroForm;
@@ -10,7 +10,7 @@ use actix_web::{
     HttpResponse, Responder,
 };
 
-use sqlx::{query, query_as};
+use sqlx::{query, query_as, Connection};
 
 #[utoipa::path(
     context_path = "/api/forms",
@@ -113,20 +113,25 @@ pub async fn submit_intro_form(
     user: UserInfo,
     body: Json<IntroForm>,
 ) -> Result<impl Responder, UserError> {
-    let mut transaction = open_transaction(&state.db).await?;
-    query!(
-        r#"insert into intro_eval_data(uid, eval_block_id, social_events, other_comments, status)
-        values($1::int4,$2::int4,$3::varchar,$4::varchar,$5::eval_status_enum)
-        on conflict on constraint intro_eval_data_pkey do update
-        set social_events = $3::varchar, other_comments = $4::varchar
-        where intro_eval_data.uid = $1::int4 and intro_eval_data.eval_block_id = $2::int4"#,
-        user.get_uid(&state.db).await?,
-        state.eval_block_id,
-        body.social_events,
-        body.other_comments,
-        EvalStatusEnum::Pending as EvalStatusEnum,
-    )
-    .execute(&mut *transaction)
+    let mut conn = state.db.acquire().await?;
+    conn.transaction(|txn| {
+        Box::pin(async move {
+            query!(
+                r#"insert into intro_eval_data(uid, eval_block_id, social_events, other_comments, status)
+                values($1::int4,$2::int4,$3::varchar,$4::varchar,$5::eval_status_enum)
+                on conflict on constraint intro_eval_data_pkey do update
+                set social_events = $3::varchar, other_comments = $4::varchar
+                where intro_eval_data.uid = $1::int4 and intro_eval_data.eval_block_id = $2::int4"#,
+                user.get_uid(&state.db).await?,
+                state.eval_block_id,
+                body.social_events,
+                body.other_comments,
+                EvalStatusEnum::Pending as EvalStatusEnum,
+            )
+            .execute(&mut **txn)
+            .await
+        })
+    })
     .await?;
     Ok(HttpResponse::Ok().finish())
 }

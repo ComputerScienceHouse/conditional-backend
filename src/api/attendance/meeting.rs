@@ -1,4 +1,4 @@
-use crate::api::lib::{open_transaction, UserError};
+use crate::api::lib::UserError;
 use crate::app::AppState;
 use crate::auth::{CSHAuth, UserInfo};
 use crate::schema::api;
@@ -15,8 +15,7 @@ use actix_web::{
     web::{Data, Json},
     HttpResponse, Responder,
 };
-use log::{log, Level};
-use sqlx::{query, query_as, Pool, Postgres, Transaction};
+use sqlx::{query, query_as, Connection, Pool, Postgres, Transaction};
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
 pub struct MeetingSubmission {
@@ -108,23 +107,25 @@ pub async fn submit_meeting_attendance(
     state: Data<AppState>,
     body: Json<MeetingSubmission>,
 ) -> Result<impl Responder, UserError> {
-    let mut transaction = open_transaction(&state.db).await?;
-    let id = query_as!(
-        db::ID,
-        "INSERT INTO other_meeting (datetime, name, meeting_type, approved)
-                VALUES ($1, $2, $3, $4) RETURNING id",
-        body.timestamp,
-        body.name,
-        body.meeting_type as MeetingType,
-        false
-    )
-    .fetch_one(&mut *transaction)
+    let mut conn = state.db.acquire().await?;
+    conn.transaction(|txn| {
+        Box::pin(async move {
+            let id = query_as!(
+                db::ID,
+                "INSERT INTO other_meeting (datetime, name, meeting_type, approved)
+                        VALUES ($1, $2, $3, $4) RETURNING id",
+                body.timestamp,
+                body.name,
+                body.meeting_type as MeetingType,
+                false
+            )
+            .fetch_one(&mut **txn)
+            .await?;
+            let members: Vec<i32> = body.attendees.to_vec();
+            insert_meeting_attendance(*id, members, &mut *txn).await
+        })
+    })
     .await?;
-    log!(Level::Trace, "Inserted directorship into db ID={}", id);
-    let members: Vec<i32> = body.attendees.to_vec();
-    insert_meeting_attendance(*id, members, &mut transaction).await?;
-    log!(Level::Trace, "Added directorship attendance");
-    transaction.commit().await?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -282,12 +283,15 @@ pub async fn delete_meeting(
     state: Data<AppState>,
     body: Json<DeleteMeetingParameters>,
 ) -> Result<impl Responder, UserError> {
-    let mut transaction = open_transaction(&state.db).await?;
-    query!("DELETE FROM other_meeting WHERE id = $1", body.id)
-        .execute(&mut *transaction)
-        .await?;
-    transaction.commit().await?;
-    log!(Level::Trace, "Deleted directorship attendance");
+    let mut conn = state.db.acquire().await?;
+    conn.transaction(|txn| {
+        Box::pin(async move {
+            query!("DELETE FROM other_meeting WHERE id = $1", body.id)
+                .execute(&mut **txn)
+                .await
+        })
+    })
+    .await?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -323,21 +327,25 @@ pub async fn modify_attendance(
     state: Data<AppState>,
     body: Json<ModifyMeetingParameters>,
 ) -> Result<impl Responder, UserError> {
-    let mut transaction = open_transaction(&state.db).await?;
-    if let Some(to_add) = &body.add {
-        insert_meeting_attendance(body.id, to_add.to_vec(), &mut transaction).await?;
-    }
-    if let Some(to_delete) = &body.delete {
-        query!(
-            "DELETE FROM om_attendance
-                WHERE om_id = $1 AND uid = ANY ($2::int4[])",
-            body.id,
-            &to_delete
-        )
-        .execute(&mut *transaction)
-        .await?;
-    }
-    transaction.commit().await?;
-    log!(Level::Trace, "Updated directorship attendance");
+    let mut conn = state.db.acquire().await?;
+    conn.transaction(|txn| {
+        Box::pin(async move {
+            if let Some(to_add) = &body.add {
+                insert_meeting_attendance(body.id, to_add.to_vec(), &mut *txn).await?;
+            }
+            if let Some(to_delete) = &body.delete {
+                query!(
+                    "DELETE FROM om_attendance
+                        WHERE om_id = $1 AND uid = ANY ($2::int4[])",
+                    body.id,
+                    &to_delete
+                )
+                .execute(&mut **txn)
+                .await?;
+            }
+            Ok::<(), UserError>(())
+        })
+    })
+    .await?;
     Ok(HttpResponse::Ok().finish())
 }

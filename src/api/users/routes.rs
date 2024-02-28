@@ -1,4 +1,4 @@
-use crate::api::lib::{open_transaction, UserError};
+use crate::api::lib::UserError;
 use crate::app::AppState;
 use crate::auth::CSHAuth;
 use crate::ldap;
@@ -8,7 +8,7 @@ use actix_web::{
     web::{Data, Json, Path},
     HttpResponse, Responder,
 };
-use sqlx::{query, query_as};
+use sqlx::{query, query_as, Connection};
 
 #[utoipa::path(
     context_path = "/api/users",
@@ -131,13 +131,17 @@ pub async fn convert_freshman_user(
     state: Data<AppState>,
     body: Json<FreshmanUpgrade>,
 ) -> Result<impl Responder, UserError> {
-    let mut transaction = open_transaction(&state.db).await?;
-    query!(
-        r#"update "user" set ipa_unique_id = $1"#,
-        body.ipa_unique_id
-    )
-    .execute(&mut *transaction)
+    let mut conn = state.db.acquire().await?;
+    conn.transaction(|txn| {
+        Box::pin(async move {
+            query!(
+                r#"update "user" set ipa_unique_id = $1"#,
+                body.ipa_unique_id
+            )
+            .execute(&mut **txn)
+            .await
+        })
+    })
     .await?;
-    transaction.commit().await?;
     Ok(HttpResponse::Ok().finish())
 }
