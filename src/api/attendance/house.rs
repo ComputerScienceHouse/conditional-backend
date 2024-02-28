@@ -196,18 +196,9 @@ pub async fn get_hm_absences_by_user(
 #[get("/house/evals/{uid}", wrap = "CSHAuth::evals_only()")]
 pub async fn get_hm_attendance_by_user_evals(
     state: Data<AppState>,
-    path: (String,),
+    path: actix_web::web::Path<i32>,
 ) -> Result<impl Responder, UserError> {
-    let res = path.0.parse::<i32>();
-    let uid;
-    if let Ok(x) = res {
-        uid = x;
-    } else {
-        return Err(UserError::ValueError {
-            value: path.0,
-            field: String::from("uid"),
-        });
-    }
+    println!("|{:?}|", path);
     let now = Utc::now();
     let hms = query_as!(
         AbsenceWrapper,
@@ -219,7 +210,7 @@ pub async fn get_hm_attendance_by_user_evals(
         } else {
             NaiveDate::from_ymd_opt(now.year() - 1, 6, 1).unwrap()
         },
-        uid
+        path.into_inner()
     )
     .fetch_all(&state.db)
     .await?;
