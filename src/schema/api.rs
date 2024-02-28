@@ -154,7 +154,7 @@ pub struct HouseMeetingAttendance {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, ToSchema)]
-pub struct HouseMeetingAttendanceUpdate {
+pub struct HouseAttendanceUpdate {
     pub uid: i32,
     pub att_status: AttendanceStatus,
     pub excuse: String,

@@ -243,7 +243,7 @@ pub async fn get_hm_attendance_by_user_evals(
 #[put("/house")]
 pub async fn modify_hm_attendance(
     state: Data<AppState>,
-    body: Json<HouseMeetingAttendanceUpdate>,
+    body: Json<HouseAttendanceUpdate>,
 ) -> Result<impl Responder, UserError> {
     let mut conn = state.db.acquire().await?;
     conn.transaction(|txn| {

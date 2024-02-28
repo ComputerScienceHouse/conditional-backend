@@ -77,6 +77,8 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                 db::MeetingType,
                 api::Meeting,
                 api::MeetingAttendance,
+                api::HouseAttendance,
+                api::HouseAttendanceUpdate,
                 api::User,
                 api::IntroForm,
                 api::Absences,

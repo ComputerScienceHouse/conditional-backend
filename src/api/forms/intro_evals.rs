@@ -96,7 +96,7 @@ pub async fn get_all_intro_forms(
 #[utoipa::path(
     context_path = "/api/forms",
     tag = "Forms",
-    request_body = IntroFormSubmission,
+    request_body = IntroForm,
     responses(
         (status = 200, description = "Sucessfully submitted intro form"),
         (status = 400, description = "Bad Request"),
