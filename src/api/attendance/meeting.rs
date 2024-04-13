@@ -102,7 +102,7 @@ async fn get_meetings(
         ("csh" = []),
     )
 )]
-#[post("/meeting", wrap = "CSHAuth::member_only()")]
+#[post("", wrap = "CSHAuth::member_only()")]
 pub async fn submit_meeting_attendance(
     state: Data<AppState>,
     body: Json<MeetingSubmission>,
@@ -145,7 +145,7 @@ pub async fn submit_meeting_attendance(
         ("intro" = []),
     )
 )]
-#[get("/meeting/directorship/self", wrap = "CSHAuth::member_and_intro()")]
+#[get("/directorship/self", wrap = "CSHAuth::member_and_intro()")]
 pub async fn get_user_directorships(
     user: UserInfo,
     state: Data<AppState>,
@@ -171,7 +171,7 @@ pub async fn get_user_directorships(
         ("intro" = []),
     )
 )]
-#[get("/meeting/seminars/self", wrap = "CSHAuth::member_and_intro()")]
+#[get("/seminar/self", wrap = "CSHAuth::member_and_intro()")]
 pub async fn get_user_seminars(
     user: UserInfo,
     state: Data<AppState>,
@@ -213,7 +213,7 @@ struct AttendanceHistoryParameters {
         ("csh" = ["eboard"]),
     )
 )]
-#[get("/meeting/attendance", wrap = "CSHAuth::eboard_only()")]
+#[get("/attendance", wrap = "CSHAuth::eboard_only()")]
 pub async fn get_attendance_history(
     state: Data<AppState>,
     body: Query<AttendanceHistoryParameters>,
@@ -322,7 +322,7 @@ pub struct ModifyMeetingParameters {
         ("csh" = ["eboard"]),
     )
 )]
-#[patch("/meeting/attendance", wrap = "CSHAuth::eboard_only()")]
+#[patch("/attendance", wrap = "CSHAuth::eboard_only()")]
 pub async fn modify_attendance(
     state: Data<AppState>,
     body: Json<ModifyMeetingParameters>,

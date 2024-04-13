@@ -160,7 +160,7 @@ pub async fn count_hm_absences(state: Data<AppState>) -> Result<impl Responder, 
         ("intro" = []),
     )
 )]
-#[get("/house", wrap = "CSHAuth::member_and_intro()")]
+#[get("/house/self", wrap = "CSHAuth::member_and_intro()")]
 pub async fn get_hm_absences_by_user(
     user: UserInfo,
     state: Data<AppState>,
