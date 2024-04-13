@@ -1,6 +1,6 @@
 use crate::api::lib::UserError;
 use crate::app::AppState;
-use crate::auth::{CSHAuth, UserInfo};
+use crate::auth_service::{CSHAuth, UserInfo};
 use crate::schema::api::IntroForm;
 use crate::schema::db::EvalStatusEnum;
 

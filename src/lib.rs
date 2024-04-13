@@ -13,3 +13,4 @@ pub mod api;
 pub mod ldap;
 
 pub mod auth;
+pub mod auth_service;

@@ -1,6 +1,6 @@
 use crate::api::lib::UserError;
 use crate::app::AppState;
-use crate::auth::CSHAuth;
+use crate::auth_service::CSHAuth;
 use crate::ldap::{get_group_members_exact, get_user};
 use crate::schema::api::{GatekeepStatus, IntroStatus, MemberStatus, Packet};
 use actix_web::{

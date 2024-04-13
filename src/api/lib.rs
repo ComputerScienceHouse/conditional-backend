@@ -1,10 +1,10 @@
 use actix_web::{
-    error,
+    error::ResponseError,
     http::{header::ContentType, StatusCode},
     HttpResponse,
 };
 use derive_more::{Display, Error};
-use log::{log, Level};
+use log::error;
 
 /// Error wrapper around sqlx::Error and actix_web::error::ResponseError
 #[derive(Debug, Display, Error)]
@@ -17,7 +17,7 @@ pub enum UserError {
     DatabaseError,
 }
 
-impl error::ResponseError for UserError {
+impl ResponseError for UserError {
     fn error_response(&self) -> HttpResponse {
         HttpResponse::build(self.status_code())
             .insert_header(ContentType::html())
@@ -34,7 +34,7 @@ impl error::ResponseError for UserError {
 
 impl From<sqlx::Error> for UserError {
     fn from(value: sqlx::Error) -> Self {
-        log!(Level::Error, "{}", value.to_string());
+        error!("{}", value.to_string());
         UserError::DatabaseError
     }
 }

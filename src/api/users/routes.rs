@@ -1,6 +1,6 @@
 use crate::api::lib::UserError;
 use crate::app::AppState;
-use crate::auth::CSHAuth;
+use crate::auth_service::CSHAuth;
 use crate::ldap;
 use crate::schema::api::{FreshmanUpgrade, User};
 use actix_web::{

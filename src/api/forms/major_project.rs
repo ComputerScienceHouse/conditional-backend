@@ -1,6 +1,6 @@
 use crate::api::lib::UserError;
 use crate::app::AppState;
-use crate::auth::{CSHAuth, UserInfo};
+use crate::auth_service::{CSHAuth, UserInfo};
 use crate::schema::api::MajorProjectSubmission;
 use crate::schema::db::MajorProjectStatusEnum;
 use crate::schema::{api, db};
@@ -26,7 +26,7 @@ use sqlx::{query, query_as, Connection};
         ("intro" = []),
     )
 )]
-#[get("/major", wrap = "CSHAuth::member_and_intro()")]
+#[get("/major_projects", wrap = "CSHAuth::member_and_intro()")]
 async fn get_user_major_projects(
     state: Data<AppState>,
     user: UserInfo,

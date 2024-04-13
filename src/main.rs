@@ -4,7 +4,7 @@ use actix_web::{middleware::Logger, App, HttpServer};
 use conditional_backend::app::{configure_app, get_app_data};
 use dotenv::dotenv;
 use lazy_static::lazy_static;
-use log::{log, Level};
+use log::{info, warn};
 use std::env;
 
 lazy_static! {
@@ -18,16 +18,12 @@ async fn main() -> std::io::Result<()> {
     dotenv().ok();
     env_logger::init();
     if *SECURITY_ENABLED {
-        log!(
-            Level::Info,
+        info!(
             "Starting with security enabled. If in development, it is recommended you disable \
              this."
         )
     } else {
-        log!(
-            Level::Warn,
-            "Starting with security disabled. THIS SHOULD NOT BE USED IN PRODUCTION."
-        )
+        warn!("Starting with security disabled. THIS SHOULD NOT BE USED IN PRODUCTION.")
     }
     let app_data = get_app_data().await;
     HttpServer::new(move || {

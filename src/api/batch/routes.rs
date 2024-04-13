@@ -1,7 +1,7 @@
 use crate::{
     api::{evals::routes::get_intro_member_evals_helper, lib::UserError},
     app::AppState,
-    auth::{CSHAuth, UserInfo},
+    auth_service::{CSHAuth, UserInfo},
     schema::{
         api::*,
         db::{self, EvalStatusEnum},

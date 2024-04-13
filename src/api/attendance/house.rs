@@ -10,7 +10,7 @@ use sqlx::{query, query_as, Connection};
 use crate::{
     api::lib::UserError,
     app::AppState,
-    auth::{CSHAuth, UserInfo},
+    auth_service::{CSHAuth, UserInfo},
     ldap::get_group_members_exact,
     schema::{
         api::*,

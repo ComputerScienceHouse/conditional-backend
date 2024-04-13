@@ -1,6 +1,6 @@
 use crate::api::lib::UserError;
 use crate::app::AppState;
-use crate::auth::{CSHAuth, UserInfo};
+use crate::auth_service::{CSHAuth, UserInfo};
 use crate::schema::api;
 use crate::schema::db;
 use crate::schema::db::MeetingType;
@@ -136,7 +136,7 @@ pub async fn submit_meeting_attendance(
     context_path="/api/attendance",
     tag = "Attendance",
     responses(
-        (status = 200, description = "Get all directorships a user has attended", body =Meeting),
+        (status = 200, description = "Get all directorships a user has attended", body = Meeting),
         (status = 401, description = "Unauthorized"),
         (status = 500, description = "Internal Server Error"),
     ),
