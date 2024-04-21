@@ -12,6 +12,24 @@ pub async fn get_intro_members(client: &LdapClient) -> Result<Vec<LdapUser>, any
     get_group_members(client, "intromembers").await
 }
 
+pub async fn get_upperclassmen(client: &LdapClient) -> Result<Vec<LdapUser>, anyhow::Error> {
+    let res = ldap_search(
+        client,
+        "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
+        format!("(!(memberOf=*10weeks*))").as_str(),
+        None,
+    )
+    .await?;
+
+    Ok(res
+        .iter()
+        .map(|r| {
+            let user = SearchEntry::construct(r.to_owned());
+            LdapUser::from_entry(&user)
+        })
+        .collect())
+}
+
 pub async fn get_active_upperclassmen(client: &LdapClient) -> Result<Vec<LdapUser>, anyhow::Error> {
     let res = ldap_search(
         client,

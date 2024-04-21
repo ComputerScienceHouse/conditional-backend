@@ -15,6 +15,17 @@ lazy_static! {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    // parse CLI args for migration
+    let args: Vec<String> = env::args().collect();
+    if let Some(arg) = args.get(1) {
+        if arg == "remigrate" {
+            todo!("remigrate");
+        } else if arg == "sync" {
+            println!("sync!");
+            return Ok(());
+        }
+    }
+
     dotenv().ok();
     env_logger::init();
     if *SECURITY_ENABLED {
