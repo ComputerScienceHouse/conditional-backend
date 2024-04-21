@@ -23,9 +23,9 @@ pub struct LdapUser {
     pub ibutton: Vec<String>,
 }
 
-impl LdapUser {
-    #[must_use]
-    pub fn from_entry(entry: &SearchEntry) -> Self {
+impl From<&ldap3::ResultEntry> for LdapUser {
+    fn from(value: &ldap3::ResultEntry) -> Self {
+        let entry = SearchEntry::construct(value.to_owned());
         let user_attrs = &entry.attrs;
         LdapUser {
             dn: entry.dn.clone(),

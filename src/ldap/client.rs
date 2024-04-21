@@ -2,7 +2,8 @@
 
 use async_trait::async_trait;
 use deadpool::managed::{self, Metrics};
-use ldap3::{drive, Ldap, LdapConnAsync, LdapError};
+use ldap3::{drive, Ldap, LdapConnAsync, LdapError, ResultEntry};
+use log::{debug, info};
 use rand::prelude::SliceRandom;
 use rand::SeedableRng;
 use std::sync::Arc;
@@ -10,6 +11,8 @@ use trust_dns_resolver::{
     config::{ResolverConfig, ResolverOpts},
     AsyncResolver,
 };
+
+use super::{search::SearchAttrs, user::LdapUser};
 
 type Pool = managed::Pool<LdapManager>;
 
@@ -95,4 +98,106 @@ async fn get_ldap_servers() -> Vec<String> {
             )
         })
         .collect()
+}
+
+impl LdapClient {
+    async fn ldap_search(
+        &self,
+        ou: &str,
+        query: &str,
+        attrs: Option<SearchAttrs>,
+    ) -> Result<Vec<ResultEntry>, anyhow::Error> {
+        debug!("LDAP Search with query {query} from {ou}");
+        let attrs = attrs.unwrap_or_default().finalize();
+        let mut ldap = self.ldap.get().await.unwrap();
+        ldap.with_timeout(std::time::Duration::from_secs(5));
+        let (results, _result) = ldap
+            .search(ou, ldap3::Scope::Subtree, query, attrs)
+            .await?
+            .success()?;
+        Ok(results)
+    }
+    pub async fn get_group_members(&self, group: &str) -> Result<Vec<LdapUser>, anyhow::Error> {
+        let res = self
+            .ldap_search(
+                "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
+                format!("memberOf=*{}*", group).as_str(),
+                None,
+            )
+            .await?;
+        Ok(res.iter().map(LdapUser::from).collect())
+    }
+
+    pub async fn get_upperclassmen(&self) -> Result<Vec<LdapUser>, anyhow::Error> {
+        let res = self
+            .ldap_search(
+                "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
+                format!("(!(memberOf=*10weeks*))").as_str(),
+                None,
+            )
+            .await?;
+
+        Ok(res.iter().map(LdapUser::from).collect())
+    }
+
+    pub async fn get_active_upperclassmen(&self) -> Result<Vec<LdapUser>, anyhow::Error> {
+        let res = self
+            .ldap_search(
+                "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
+                "(&(memberOf=*active*)(!(memberOf=*intromember*)))"
+                    .to_string()
+                    .as_str(),
+                None,
+            )
+            .await?;
+
+        Ok(res.iter().map(LdapUser::from).collect())
+    }
+
+    pub async fn get_user(&self, user: &str) -> Result<Vec<LdapUser>, anyhow::Error> {
+        let res = self
+            .ldap_search(
+                "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
+                format!("(uid={})", user).as_str(),
+                None,
+            )
+            .await?;
+
+        Ok(res.iter().map(LdapUser::from).collect())
+    }
+
+    pub async fn get_group_members_exact(
+        &self,
+        group: &str,
+    ) -> Result<Vec<LdapUser>, anyhow::Error> {
+        let res = self
+            .ldap_search(
+                "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
+                format!(
+                    "memberOf=cn={},cn=groups,cn=accounts,dc=csh,dc=rit,dc=edu",
+                    group
+                )
+                .as_str(),
+                None,
+            )
+            .await?;
+
+        Ok(res.iter().map(LdapUser::from).collect())
+    }
+
+    pub async fn search_users(&self, query: &str) -> Result<Vec<LdapUser>, anyhow::Error> {
+        let res = self
+            .ldap_search(
+                "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
+                format!("(|(uid=*{query}*)(cn=*{query}*))").as_str(),
+                None,
+            )
+            .await?;
+
+        Ok(res.iter().map(LdapUser::from).collect())
+    }
+
+    pub async fn get_intro_members(&self) -> Result<Vec<LdapUser>, anyhow::Error> {
+        self.get_group_members("intromembers").await
+    }
 }

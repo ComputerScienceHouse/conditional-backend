@@ -1,4 +1,3 @@
-use crate::ldap;
 use crate::ldap::client::LdapClient;
 use chrono::Datelike;
 use sqlx::migrate::Migrator;
@@ -102,7 +101,7 @@ async fn insert_upperclassmen_accounts<'a>(
 
     let mut frosh_uuid_map = HashMap::new();
 
-    let mut six_weeks_csh_members = match ldap::get_group_members(&ldap, "10weeks").await {
+    let mut six_weeks_csh_members = match ldap.get_group_members("10weeks").await {
         Ok(members) => members,
         Err(e) => panic!("{}", e),
     };
@@ -110,7 +109,7 @@ async fn insert_upperclassmen_accounts<'a>(
         !member.rit_username.is_empty()
             && conditional_members.contains(&CshUsername(member.uid.clone()))
     });
-    let mut upperclassmen = match ldap::get_upperclassmen(&ldap).await {
+    let mut upperclassmen = match ldap.get_upperclassmen().await {
         Ok(members) => members,
         Err(e) => panic!("{}", e),
     };

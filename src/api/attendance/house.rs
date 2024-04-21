@@ -11,7 +11,6 @@ use crate::{
     api::lib::UserError,
     app::AppState,
     auth_service::{CSHAuth, UserInfo},
-    ldap::get_group_members_exact,
     schema::{
         api::*,
         db::{AttendanceStatus, ID},
@@ -103,7 +102,7 @@ pub async fn submit_hm_attendance(
 #[get("/house/users", wrap = "CSHAuth::member_only()")]
 pub async fn count_hm_absences(state: Data<AppState>) -> Result<impl Responder, UserError> {
     let now = Utc::now();
-    let users = get_group_members_exact(&state.ldap, "active").await;
+    let users = state.ldap.get_group_members_exact("active").await;
     let usernames: Vec<_>;
     if let Ok(members) = users {
         usernames = members.into_iter().map(|m| m.rit_username).collect();

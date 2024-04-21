@@ -1,7 +1,6 @@
 use crate::api::lib::UserError;
 use crate::app::AppState;
 use crate::auth_service::CSHAuth;
-use crate::ldap;
 use crate::schema::api::{FreshmanUpgrade, User};
 use actix_web::{
     get, put,
@@ -27,7 +26,9 @@ use sqlx::{query, query_as, Connection};
 #[get("/voting_count", wrap = "CSHAuth::member_and_intro()")]
 pub async fn get_voting_count(state: Data<AppState>) -> Result<impl Responder, UserError> {
     Ok(HttpResponse::Ok().json(
-        ldap::get_active_upperclassmen(&state.ldap)
+        state
+            .ldap
+            .get_active_upperclassmen()
             .await
             .map_err(|_| UserError::ServerError)?
             .len(),
@@ -51,7 +52,9 @@ pub async fn get_voting_count(state: Data<AppState>) -> Result<impl Responder, U
 #[get("/active_count", wrap = "CSHAuth::member_and_intro()")]
 pub async fn get_active_count(state: Data<AppState>) -> Result<impl Responder, UserError> {
     Ok(HttpResponse::Ok().json(
-        ldap::get_group_members(&state.ldap, "active")
+        state
+            .ldap
+            .get_group_members("active")
             .await
             .map_err(|_| UserError::ServerError)?
             .len(),
@@ -81,7 +84,9 @@ pub async fn search_members(
     path: Path<(String,)>,
 ) -> Result<impl Responder, UserError> {
     Ok(HttpResponse::Ok().json(
-        ldap::search_users(&state.ldap, path.0.as_str())
+        state
+            .ldap
+            .search_users(path.0.as_str())
             .await
             .map_err(|_| UserError::ServerError)?,
     ))

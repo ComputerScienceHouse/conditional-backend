@@ -1,7 +1,6 @@
 use crate::api::lib::UserError;
 use crate::app::AppState;
 use crate::auth_service::CSHAuth;
-use crate::ldap::{get_group_members_exact, get_user};
 use crate::schema::api::{GatekeepStatus, IntroStatus, MemberStatus, Packet};
 use actix_web::{
     get,
@@ -150,7 +149,9 @@ pub async fn get_intro_member_evals(state: Data<AppState>) -> Result<impl Respon
 )]
 #[get("/member", wrap = "CSHAuth::member_only()")]
 pub async fn get_member_evals(state: Data<AppState>) -> Result<impl Responder, UserError> {
-    let (uids, names): (Vec<String>, Vec<String>) = get_group_members_exact(&state.ldap, "active")
+    let (uids, names): (Vec<String>, Vec<String>) = state
+        .ldap
+        .get_group_members_exact("active")
         .await
         .map_err(|_| UserError::ServerError)?
         .iter()
@@ -196,7 +197,9 @@ pub async fn get_gatekeep(
     path: Path<(String,)>,
     state: Data<AppState>,
 ) -> Result<impl Responder, UserError> {
-    let (uids, names): (Vec<String>, Vec<String>) = get_user(&state.ldap, path.0.as_str())
+    let (uids, names): (Vec<String>, Vec<String>) = state
+        .ldap
+        .get_user(path.0.as_str())
         .await
         .map_err(|_| UserError::ServerError)?
         .iter()
