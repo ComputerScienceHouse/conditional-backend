@@ -62,17 +62,18 @@ async fn insert_freshmen_accounts<'a>(
 
     for frosh_account in frosh_accounts {
         let uid: (i32,) = sqlx::query_as(
-      "INSERT INTO \"user\"(name, intro_id, ipa_unique_id, rit_username, csh_username, is_csh, is_intro) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
-    )
-    .bind(frosh_account.name)
-    .bind(frosh_account.intro_id)
-    .bind(frosh_account.ipa_unique_id)
-    .bind(frosh_account.rit_username)
-    .bind(frosh_account.csh_username)
-    .bind(frosh_account.is_csh)
-    .bind(frosh_account.is_intro)
-    .fetch_one(&mut *transaction)
-    .await?;
+            "INSERT INTO \"user\"(name, intro_id, ipa_unique_id, rit_username, csh_username, \
+             is_csh, is_intro) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+        )
+        .bind(frosh_account.name)
+        .bind(frosh_account.intro_id)
+        .bind(frosh_account.ipa_unique_id)
+        .bind(frosh_account.rit_username)
+        .bind(frosh_account.csh_username)
+        .bind(frosh_account.is_csh)
+        .bind(frosh_account.is_intro)
+        .fetch_one(&mut *transaction)
+        .await?;
         fid_map.insert(frosh_account.id, uid.0);
     }
     Ok((fid_map, transaction))
@@ -85,10 +86,10 @@ async fn insert_upperclassmen_accounts<'a>(
 ) -> Result<(HashMap<String, i32>, Transaction<'a, Postgres>), sqlx::Error> {
     let mut username_map = HashMap::new();
     let ldap = LdapClient::new(
-        &env::var("CONDITIONAL_LDAP_BIND_DN")
+        env::var("CONDITIONAL_LDAP_BIND_DN")
             .expect("CONDITIONAL_LDAP_BIND_DN not set")
             .as_str(),
-        &env::var("CONDITIONAL_LDAP_BIND_PW")
+        env::var("CONDITIONAL_LDAP_BIND_PW")
             .expect("CONDITIONAL_LDAP_BIND_PW not set")
             .as_str(),
     )
@@ -140,34 +141,36 @@ async fn insert_upperclassmen_accounts<'a>(
     for user in six_weeks_csh_members {
         if let Some(intro_id) = frosh_uuid_map.get(&user.rit_username) {
             let uid: (i32,) = sqlx::query_as(
-      "INSERT INTO \"user\"(name, intro_id, ipa_unique_id, rit_username, csh_username, is_csh, is_intro) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
-    )
-        .bind(&user.cn)
-        .bind(intro_id)
-        .bind(&user.ipa_unique_id)
-        .bind(&user.rit_username)
-        .bind(&user.uid)
-        .bind(true)
-        .bind(true)
-        .fetch_one(&mut *transaction)
-        .await?;
+                "INSERT INTO \"user\"(name, intro_id, ipa_unique_id, rit_username, csh_username, \
+                 is_csh, is_intro) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+            )
+            .bind(&user.cn)
+            .bind(intro_id)
+            .bind(&user.ipa_unique_id)
+            .bind(&user.rit_username)
+            .bind(&user.uid)
+            .bind(true)
+            .bind(true)
+            .fetch_one(&mut *transaction)
+            .await?;
             username_map.insert(user.uid, uid.0);
         }
     }
     for user in upperclassmen {
         if let Some(intro_id) = frosh_uuid_map.get(&user.rit_username) {
             let uid: (i32,) = sqlx::query_as(
-      "INSERT INTO \"user\"(name, intro_id, ipa_unique_id, rit_username, csh_username, is_csh, is_intro) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
-        )
-        .bind(&user.cn)
-        .bind(intro_id)
-        .bind(&user.ipa_unique_id)
-        .bind(&user.rit_username)
-        .bind(&user.uid)
-        .bind(true)
-        .bind(false)
-        .fetch_one(&mut *transaction)
-        .await?;
+                "INSERT INTO \"user\"(name, intro_id, ipa_unique_id, rit_username, csh_username, \
+                 is_csh, is_intro) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+            )
+            .bind(&user.cn)
+            .bind(intro_id)
+            .bind(&user.ipa_unique_id)
+            .bind(&user.rit_username)
+            .bind(&user.uid)
+            .bind(true)
+            .bind(false)
+            .fetch_one(&mut *transaction)
+            .await?;
             username_map.insert(user.uid, uid.0);
         }
     }
@@ -206,13 +209,16 @@ async fn insert_other_meetings<'a>(
     });
     let mut meeting_map = HashMap::new();
     for meeting in old_directorships.chain(old_seminars) {
-        let new_id: (i32, ) = sqlx::query_as(
-      "INSERT INTO other_meeting(datetime, name, meeting_type, approved) VALUES ($1, $2, $3, $4) RETURNING id")
-      .bind(meeting.datetime)
-      .bind(meeting.name)
-      .bind(meeting.meeting_type)
-      .bind(meeting.approved)
-      .fetch_one(&mut *transaction).await?;
+        let new_id: (i32,) = sqlx::query_as(
+            "INSERT INTO other_meeting(datetime, name, meeting_type, approved) VALUES ($1, $2, \
+             $3, $4) RETURNING id",
+        )
+        .bind(meeting.datetime)
+        .bind(meeting.name)
+        .bind(meeting.meeting_type)
+        .bind(meeting.approved)
+        .fetch_one(&mut *transaction)
+        .await?;
         meeting_map.insert((meeting.meeting_type, meeting.id), new_id.0);
     }
     Ok((meeting_map, transaction))
@@ -266,7 +272,10 @@ async fn insert_coops<'a>(
             }
         })
         .unzip();
-    sqlx::query("INSERT INTO coop(uid, date, semester) SELECT uid, date_created, semester FROM UNNEST($1::int4[], $2::date[], $3::semester_enum[]) as a(uid, date_created, semester)")
+    sqlx::query(
+        "INSERT INTO coop(uid, date, semester) SELECT uid, date_created, semester FROM \
+         UNNEST($1::int4[], $2::date[], $3::semester_enum[]) as a(uid, date_created, semester)",
+    )
     .bind(uids.as_slice())
     .bind(dates.as_slice())
     .bind(semesters.as_slice())
@@ -348,7 +357,12 @@ async fn insert_hm_attendance<'a>(
     meeting_ids.extend(freshman_meeting_id);
     attendance_status.extend(freshman_attendance_status);
     excuse.extend(freshman_excuse);
-    sqlx::query("INSERT INTO hm_attendance(uid, house_meeting_id, attendance_status, excuse) SELECT uid, house_meeting_id, attendance_status, excuse FROM UNNEST($1::int4[], $2::int4[], $3::hm_attendance_status_enum[], $4) as a(uid, house_meeting_id, attendance_status, excuse)")
+    sqlx::query(
+        "INSERT INTO hm_attendance(uid, house_meeting_id, attendance_status, excuse) SELECT uid, \
+         house_meeting_id, attendance_status, excuse FROM UNNEST($1::int4[], $2::int4[], \
+         $3::hm_attendance_status_enum[], $4) as a(uid, house_meeting_id, attendance_status, \
+         excuse)",
+    )
     .bind(uids.as_slice())
     .bind(meeting_ids.as_slice())
     .bind(attendance_status.as_slice())
@@ -365,30 +379,36 @@ async fn insert_intro_eval_data<'a>(
     mut transaction: Transaction<'a, Postgres>,
 ) -> Result<Transaction<'a, Postgres>, sqlx::Error> {
     let (((uids, eval_block_ids), (social_events, other_comments)), eval_statuses): (
-    (
-      (Vec<i32>, Vec<i32>),
-      (Vec<Option<String>>, Vec<Option<String>>),
-    ),
-    Vec<new::EvalStatusEnum>,
-  ) = sqlx::query_as::<_, old::FreshmanEvalData>(
-    "SELECT * FROM freshman_eval_data WHERE eval_date > '2023-06-01'	AND eval_date < '2023-10-15'",
-  )
-  .fetch_all(old_pool)
-  .await?
-  .into_iter()
-  .filter_map(|old| {
-    if let Some(uid) = username_map.get(&old.uid) {
-      Some((
-        ((uid, 1), (old.social_events, old.other_notes)),
-        old.freshman_eval_result.get_eval_enum(),
-      ))
-    } else {
-      println!("inserting intro eval data: no fk for uid {}", old.uid);
-      None
-    }
-  })
-  .unzip();
-    sqlx::query("INSERT INTO intro_eval_data(uid, eval_block_id, social_events, other_comments, status) SELECT uid, eval_block_id, social_events, other_comments, status FROM UNNEST($1::int4[], $2::int4[], $3::text[], $4::text[], $5::eval_status_enum[]) as a(uid, eval_block_id, social_events, other_comments, status)")
+        (
+            (Vec<i32>, Vec<i32>),
+            (Vec<Option<String>>, Vec<Option<String>>),
+        ),
+        Vec<new::EvalStatusEnum>,
+    ) = sqlx::query_as::<_, old::FreshmanEvalData>(
+        "SELECT * FROM freshman_eval_data WHERE eval_date > '2023-06-01'	AND eval_date < \
+         '2023-10-15'",
+    )
+    .fetch_all(old_pool)
+    .await?
+    .into_iter()
+    .filter_map(|old| {
+        if let Some(uid) = username_map.get(&old.uid) {
+            Some((
+                ((uid, 1), (old.social_events, old.other_notes)),
+                old.freshman_eval_result.get_eval_enum(),
+            ))
+        } else {
+            println!("inserting intro eval data: no fk for uid {}", old.uid);
+            None
+        }
+    })
+    .unzip();
+    sqlx::query(
+        "INSERT INTO intro_eval_data(uid, eval_block_id, social_events, other_comments, status) \
+         SELECT uid, eval_block_id, social_events, other_comments, status FROM UNNEST($1::int4[], \
+         $2::int4[], $3::text[], $4::text[], $5::eval_status_enum[]) as a(uid, eval_block_id, \
+         social_events, other_comments, status)",
+    )
     .bind(uids.as_slice())
     .bind(eval_block_ids.as_slice())
     .bind(social_events.as_slice())
@@ -429,10 +449,13 @@ async fn insert_major_projects<'a>(
             }
         })
         .unzip();
-    sqlx::query("INSERT INTO major_project(
+    sqlx::query(
+        "INSERT INTO major_project(
 uid, name, description, date, status) SELECT
-uid, name, description, date, status FROM UNNEST($1::int4[], $2::text[], $3::text[], $4::date[], $5::major_project_status_enum[]) as a(
-uid, name, description, date, status)")
+uid, name, description, date, status FROM UNNEST($1::int4[], $2::text[], $3::text[], $4::date[], \
+         $5::major_project_status_enum[]) as a(
+uid, name, description, date, status)",
+    )
     .bind(uids.as_slice())
     .bind(names.as_slice())
     .bind(descriptions.as_slice())
@@ -622,18 +645,19 @@ async fn insert_conditionals<'a>(
         })
         .unzip();
     sqlx::query(
-    "INSERT INTO conditional(
+        "INSERT INTO conditional(
 uid, description, start_date, due_date, status) SELECT
-uid, description, start_date, due_date, status FROM UNNEST($1::int4[], $2::text[], $3::date[], $4::date[], $5::conditional_status_enum[]) as a(
+uid, description, start_date, due_date, status FROM UNNEST($1::int4[], $2::text[], $3::date[], \
+         $4::date[], $5::conditional_status_enum[]) as a(
 uid, description, start_date, due_date, status) ON CONFLICT DO NOTHING",
-  )
-  .bind(uids.as_slice())
-  .bind(descriptions.as_slice())
-  .bind(start_dates.as_slice())
-  .bind(due_dates.as_slice())
-  .bind(statuses.as_slice())
-  .execute(&mut *transaction)
-  .await?;
+    )
+    .bind(uids.as_slice())
+    .bind(descriptions.as_slice())
+    .bind(start_dates.as_slice())
+    .bind(due_dates.as_slice())
+    .bind(statuses.as_slice())
+    .execute(&mut *transaction)
+    .await?;
     Ok(transaction)
 }
 
@@ -647,20 +671,26 @@ uid, description, start_date, due_date, status) ON CONFLICT DO NOTHING",
 static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
 
 async fn run_down_migrations(new_pool: &Pool<Postgres>) {
-    MIGRATOR.undo(new_pool, 20240122010834);
+    let _ = MIGRATOR.undo(new_pool, 20240122010834).await;
 }
 
 async fn migrate() -> Result<(), Box<dyn std::error::Error>> {
     let old_pool = PgPoolOptions::new()
-    .max_connections(5)
-    .connect(
-      "postgresql://conditional:alDeEe5vFt25QjpBpm6WhoCG2NHSYNPF@postgres.csh.rit.edu/conditional",
-    )
-    .await?;
-    // .connect("postgresql://conditionaldev:y3vNyHE9Qp9m9QQ3xTeiu3qztZKzwc@postgres.csh.rit.edu/conditionaldev").await?;
+        .max_connections(5)
+        .connect(
+            "postgresql://conditional:alDeEe5vFt25QjpBpm6WhoCG2NHSYNPF@postgres.csh.rit.edu/\
+             conditional",
+        )
+        .await?;
+    // .connect("postgresql://conditionaldev:y3vNyHE9Qp9m9QQ3xTeiu3qztZKzwc@
+    // postgres.csh.rit.edu/conditionaldev").await?;
     let new_pool = PgPoolOptions::new()
         .max_connections(5)
-        .connect("postgresql://conditionalnew:yCrhk5gF62Bu9QZyQfAVn8*jEPMxv!CS@postgres.csh.rit.edu/conditionalnew").await?;
+        .connect(
+            "postgresql://conditionalnew:yCrhk5gF62Bu9QZyQfAVn8*jEPMxv!CS@postgres.csh.rit.edu/\
+             conditionalnew",
+        )
+        .await?;
 
     let frosh_pool = PgPoolOptions::new()
         .max_connections(5)
@@ -703,7 +733,8 @@ async fn migrate() -> Result<(), Box<dyn std::error::Error>> {
     )
     .await?;
 
-    // (freshman_committee_attendance, freshman_seminar_attendance, member_committee_attendance, member_seminar_attendance) -> om_attendance
+    // (freshman_committee_attendance, freshman_seminar_attendance,
+    // member_committee_attendance, member_seminar_attendance) -> om_attendance
     transaction = insert_om_attendances(
         &fid_map,
         &username_map,

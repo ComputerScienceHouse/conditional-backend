@@ -16,7 +16,7 @@ base64 = "0.21.4"
 chrono = { version = "0.4.31", features = ["serde"] }
 deadpool = { version = "0.10.0", default-features = false, features = ["async-trait", "managed"] }
 derive_more = "0.99.17"
-dotenv = "0.15.0"
+dotenvy = "0.15.7"
 env_logger = "0.10.0"
 futures = "0.3.28"
 jwt = { version = "0.16.0", features = ["openssl"] }

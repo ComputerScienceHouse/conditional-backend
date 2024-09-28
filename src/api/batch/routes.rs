@@ -165,8 +165,8 @@ pub async fn create_batch(
             let batch_ids = vec![id.id; values.len()];
 
             query!(
-                "INSERT INTO batch_condition(value, criterion, comparison, batch_id) SELECT value as \
-                 \"value!\", criterion AS \"criterion!: BatchCriterion\", comparison AS \
+                "INSERT INTO batch_condition(value, criterion, comparison, batch_id) SELECT value \
+                 as \"value!\", criterion AS \"criterion!: BatchCriterion\", comparison AS \
                  \"comparison!:_\", batch_id as \"batch_id!\" FROM UNNEST($1::int4[], \
                  $2::batch_criterion_enum[], $3::batch_comparison_enum[], $4::int4[]) as a(value, \
                  criterion, comparison, batch_id)",
@@ -183,8 +183,8 @@ pub async fn create_batch(
             let batch_ids = vec![id.id; uids.len()];
 
             query!(
-                "INSERT INTO batch_user(uid, batch_id) SELECT fid, batch_id FROM UNNEST($1::int4[], \
-                 $2::int4[]) as a(fid, batch_id)",
+                "INSERT INTO batch_user(uid, batch_id) SELECT fid, batch_id FROM \
+                 UNNEST($1::int4[], $2::int4[]) as a(fid, batch_id)",
                 uids.as_slice(),
                 batch_ids.as_slice()
             )
@@ -250,8 +250,8 @@ pub async fn submit_batch_pr(
         Box::pin(async move {
             query!(
                 "insert into batch_pull(uid, puller, reason, approved) values($1::int4, $2::int4, \
-                 $3::varchar, false) on conflict on constraint batch_pull_pkey do update set reason = \
-                 $3::varchar",
+                 $3::varchar, false) on conflict on constraint batch_pull_pkey do update set \
+                 reason = $3::varchar",
                 body.uid,
                 user.get_uid(&state.db).await?,
                 body.reason,

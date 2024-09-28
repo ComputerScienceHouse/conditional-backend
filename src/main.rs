@@ -2,7 +2,7 @@ use actix_cors::Cors;
 use actix_web::http::header;
 use actix_web::{middleware::Logger, App, HttpServer};
 use conditional_backend::app::{configure_app, get_app_data};
-use dotenv::dotenv;
+use dotenvy::dotenv;
 use lazy_static::lazy_static;
 use log::{info, warn};
 use std::env;
