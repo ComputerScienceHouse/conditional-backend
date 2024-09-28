@@ -1,14 +1,13 @@
 use crate::{
-    api::attendance::house::*,
-    api::attendance::meeting::*,
-    api::batch::routes::*,
-    api::evals::routes::*,
-    api::forms::coop::*,
-    api::forms::intro_evals::*,
-    api::forms::major_project::*,
-    api::users::routes::*,
-    ldap,
-    ldap::client::LdapClient,
+    api::{
+        attendance::{house::*, meeting::*},
+        batch::routes::*,
+        evals::routes::*,
+        forms::{coop::*, intro_evals::*, major_project::*},
+        housing::routes::*,
+        users::routes::*,
+    },
+    ldap::{self, client::LdapClient},
     schema::{api, db},
 };
 use actix_web::web::{self, scope, Data};
@@ -61,6 +60,8 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             get_user_major_projects,
             get_all_major_projects,
             submit_major_project,
+            get_housing_queue,
+            add_to_housing_queue,
             get_all_batches,
             create_batch,
             pull_user,
@@ -191,6 +192,12 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                     .service(search_members)
                     .service(all_members)
                     .service(convert_freshman_user),
+            )
+            .service(
+                scope("/housing")
+                    // Housing routes
+                    .service(get_housing_queue)
+                    .service(add_to_housing_queue),
             ),
     )
     .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));

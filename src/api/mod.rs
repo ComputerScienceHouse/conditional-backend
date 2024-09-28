@@ -21,4 +21,8 @@ pub mod users {
     pub mod routes;
 }
 
+pub mod housing {
+    pub mod routes;
+}
+
 pub mod lib;
