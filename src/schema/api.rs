@@ -264,3 +264,22 @@ pub struct Batch {
     /// A vector of user IDs
     pub members: Vec<i32>,
 }
+
+#[derive(FromRow, Serialize, Deserialize, Clone, Debug, ToSchema, PartialEq, Eq)]
+pub struct Room {
+    pub number: i32,
+    pub users: Option<Vec<i32>>,
+    pub names: Option<Vec<String>>,
+}
+
+impl PartialOrd for Room {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Room {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.number.cmp(&other.number)
+    }
+}

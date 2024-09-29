@@ -106,7 +106,7 @@ impl LdapClient {
         ou: &str,
         query: &str,
         attrs: Option<SearchAttrs>,
-    ) -> Result<Vec<ResultEntry>, anyhow::Error> {
+    ) -> anyhow::Result<Vec<ResultEntry>> {
         debug!("LDAP Search with query {query} from {ou}");
         let attrs = attrs.unwrap_or_default().finalize();
         let mut ldap = self.ldap.get().await.unwrap();
@@ -117,7 +117,7 @@ impl LdapClient {
             .success()?;
         Ok(results)
     }
-    pub async fn get_group_members(&self, group: &str) -> Result<Vec<LdapUser>, anyhow::Error> {
+    pub async fn get_group_members(&self, group: &str) -> anyhow::Result<Vec<LdapUser>> {
         let res = self
             .ldap_search(
                 "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
@@ -128,7 +128,7 @@ impl LdapClient {
         Ok(res.iter().map(LdapUser::from).collect())
     }
 
-    pub async fn get_upperclassmen(&self) -> Result<Vec<LdapUser>, anyhow::Error> {
+    pub async fn get_upperclassmen(&self) -> anyhow::Result<Vec<LdapUser>> {
         let res = self
             .ldap_search(
                 "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
@@ -140,7 +140,7 @@ impl LdapClient {
         Ok(res.iter().map(LdapUser::from).collect())
     }
 
-    pub async fn get_active_upperclassmen(&self) -> Result<Vec<LdapUser>, anyhow::Error> {
+    pub async fn get_active_upperclassmen(&self) -> anyhow::Result<Vec<LdapUser>> {
         let res = self
             .ldap_search(
                 "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
@@ -154,7 +154,7 @@ impl LdapClient {
         Ok(res.iter().map(LdapUser::from).collect())
     }
 
-    pub async fn get_user(&self, user: &str) -> Result<Vec<LdapUser>, anyhow::Error> {
+    pub async fn get_user(&self, user: &str) -> anyhow::Result<Vec<LdapUser>> {
         let res = self
             .ldap_search(
                 "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
@@ -166,10 +166,7 @@ impl LdapClient {
         Ok(res.iter().map(LdapUser::from).collect())
     }
 
-    pub async fn get_group_members_exact(
-        &self,
-        group: &str,
-    ) -> Result<Vec<LdapUser>, anyhow::Error> {
+    pub async fn get_group_members_exact(&self, group: &str) -> anyhow::Result<Vec<LdapUser>> {
         let res = self
             .ldap_search(
                 "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
@@ -185,7 +182,7 @@ impl LdapClient {
         Ok(res.iter().map(LdapUser::from).collect())
     }
 
-    pub async fn search_users(&self, query: &str) -> Result<Vec<LdapUser>, anyhow::Error> {
+    pub async fn search_users(&self, query: &str) -> anyhow::Result<Vec<LdapUser>> {
         let res = self
             .ldap_search(
                 "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
@@ -197,7 +194,20 @@ impl LdapClient {
         Ok(res.iter().map(LdapUser::from).collect())
     }
 
-    pub async fn get_intro_members(&self) -> Result<Vec<LdapUser>, anyhow::Error> {
+    pub async fn get_intro_members(&self) -> anyhow::Result<Vec<LdapUser>> {
         self.get_group_members("intromembers").await
+    }
+
+    pub async fn get_onfloor_members(&self) -> anyhow::Result<Vec<LdapUser>> {
+        Ok(self
+            .ldap_search(
+                "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
+                "(&(roomNumber=*)(memberOf=cn=onfloor,cn=groups,cn=accounts,dc=csh,dc=rit,dc=edu))",
+                None,
+            )
+            .await?
+            .iter()
+            .map(LdapUser::from)
+            .collect())
     }
 }

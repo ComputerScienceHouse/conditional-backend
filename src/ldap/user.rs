@@ -21,6 +21,7 @@ pub struct LdapUser {
     pub mobile: Vec<String>,
     pub drink_balance: Option<i64>,
     pub ibutton: Vec<String>,
+    pub room_number: Option<i32>,
 }
 
 impl From<&ldap3::ResultEntry> for LdapUser {
@@ -39,6 +40,7 @@ impl From<&ldap3::ResultEntry> for LdapUser {
             mobile: get_vec(user_attrs, "mobile"),
             ibutton: get_vec(user_attrs, "ibutton"),
             drink_balance: get_one(user_attrs, "drinkBalance"),
+            room_number: get_one(user_attrs, "roomNumber"),
         }
     }
 }
