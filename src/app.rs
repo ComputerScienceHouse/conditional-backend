@@ -62,6 +62,8 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             submit_major_project,
             get_housing_queue,
             add_to_housing_queue,
+            remove_from_housing_queue,
+            get_rooms,
             get_all_batches,
             create_batch,
             pull_user,
@@ -93,6 +95,7 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                 api::GatekeepStatus,
                 api::CoopSubmission,
                 api::MajorProjectSubmission,
+                api::Room,
                 api::Batch,
                 api::BatchSubmission,
                 api::BatchPull,
@@ -197,7 +200,9 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                 scope("/housing")
                     // Housing routes
                     .service(get_housing_queue)
-                    .service(add_to_housing_queue),
+                    .service(add_to_housing_queue)
+                    .service(remove_from_housing_queue)
+                    .service(get_rooms),
             ),
     )
     .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));

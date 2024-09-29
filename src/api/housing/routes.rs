@@ -128,7 +128,7 @@ fn merge_rooms(mut a: Vec<Room>, b: Vec<Room>) -> Vec<Room> {
     context_path = "/housing/queue",
     tag = "Housing",
     responses(
-        (status = 200, description = "Remove a user from housing queue", body = Vec<ID>),
+        (status = 200, description = "Get all rooms", body = Vec<Room>),
         (status = 400, description = "Bad Request"),
         (status = 401, description = "Unauthorized"),
         (status = 500, description = "Internal Server Error"),
