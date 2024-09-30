@@ -2,11 +2,11 @@
 
 use async_trait::async_trait;
 use deadpool::managed::{self, Metrics};
-use ldap3::{drive, Ldap, LdapConnAsync, LdapError, ResultEntry};
+use ldap3::{drive, Ldap, LdapConnAsync, LdapError, Mod, ResultEntry};
 use log::{debug, info};
 use rand::prelude::SliceRandom;
 use rand::SeedableRng;
-use std::sync::Arc;
+use std::{hash::Hash, sync::Arc};
 use trust_dns_resolver::{
     config::{ResolverConfig, ResolverOpts},
     AsyncResolver,
@@ -101,6 +101,18 @@ async fn get_ldap_servers() -> Vec<String> {
 }
 
 impl LdapClient {
+    pub async fn apply_mods<S: AsRef<[u8]> + Hash + Eq>(
+        &self,
+        dn: &str,
+        mods: Vec<Mod<S>>,
+    ) -> anyhow::Result<()> {
+        let mut ldap = self.ldap.get().await.unwrap();
+        ldap.with_timeout(std::time::Duration::from_secs(5));
+        ldap.modify(dn, mods).await?.success()?;
+
+        Ok(())
+    }
+
     async fn ldap_search(
         &self,
         ou: &str,
@@ -117,6 +129,7 @@ impl LdapClient {
             .success()?;
         Ok(results)
     }
+
     pub async fn get_group_members(&self, group: &str) -> anyhow::Result<Vec<LdapUser>> {
         let res = self
             .ldap_search(

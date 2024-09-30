@@ -1,15 +1,18 @@
+use std::collections::HashSet;
+
 use actix_web::{
     delete, get, post,
     web::{Data, Json},
     HttpResponse, Responder,
 };
+use ldap3::Mod;
 use sqlx::{query, query_as, Postgres};
 
 use crate::{
     api::lib::UserError,
     app::AppState,
     auth_service::CSHAuth,
-    schema::api::{Room, User},
+    schema::api::{Room, RoomRequest, User},
 };
 
 #[utoipa::path(
@@ -124,4 +127,56 @@ pub async fn get_rooms(state: Data<AppState>) -> Result<impl Responder, UserErro
     .await?;
 
     Ok(HttpResponse::Ok().json(rooms))
+}
+
+#[utoipa::path(
+    context_path = "/housing/room",
+    tag = "Housing",
+    responses(
+        (status = 200, description = "Add one user to a room", body = RoomRequest),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error"),
+    ),
+)]
+#[post("/room", wrap = "CSHAuth::evals_only()")]
+pub async fn add_room(
+    state: Data<AppState>,
+    request: Json<RoomRequest>,
+) -> Result<impl Responder, UserError> {
+    let request = request.into_inner();
+
+    if request.is_freshman {
+        let uid = request
+            .uid
+            .parse::<i32>()
+            .map_err(|_| UserError::ValueError {
+                value: request.uid,
+                field: "UID".to_string(),
+            })?;
+        query!(
+            "insert into freshman_rooms values($1, $2)",
+            request.number,
+            uid
+        )
+        .execute(&state.db)
+        .await?;
+    } else {
+        let mut set = HashSet::new();
+        set.insert(request.number.to_string());
+        state
+            .ldap
+            .apply_mods(
+                format!(
+                    "cn={},cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
+                    request.uid
+                )
+                .as_str(),
+                vec![Mod::Replace("roomNumber".to_string(), set)],
+            )
+            .await
+            .map_err(|_| UserError::ServerError)?;
+    }
+
+    Ok(HttpResponse::NoContent().finish())
 }

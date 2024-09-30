@@ -7,7 +7,6 @@ use std::fmt::Debug;
 use std::str::FromStr;
 use utoipa::ToSchema;
 
-#[allow(non_snake_case)]
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct LdapUser {
     pub dn: String,

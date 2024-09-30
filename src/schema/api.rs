@@ -271,6 +271,16 @@ pub struct Room {
     pub users: Option<Vec<User>>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema, PartialEq, Eq)]
+pub struct RoomRequest {
+    pub number: i32,
+    /// This should be the user's CSH username if present, otherwise the id
+    /// found in the user table
+    // I'm so sorry
+    pub uid: String,
+    pub is_freshman: bool,
+}
+
 impl FromRow<'_, PgRow> for Room {
     fn from_row(row: &'_ PgRow) -> Result<Self, sqlx::Error> {
         let users = Some(
