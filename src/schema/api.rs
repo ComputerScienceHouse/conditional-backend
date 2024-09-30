@@ -7,7 +7,7 @@
 use chrono::NaiveDate;
 
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
+use sqlx::{postgres::PgRow, FromRow, Row};
 use utoipa::ToSchema;
 
 use super::db::{
@@ -265,11 +265,34 @@ pub struct Batch {
     pub members: Vec<i32>,
 }
 
-#[derive(FromRow, Serialize, Deserialize, Clone, Debug, ToSchema, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema, PartialEq, Eq)]
 pub struct Room {
     pub number: i32,
-    pub users: Option<Vec<i32>>,
-    pub names: Option<Vec<String>>,
+    pub users: Option<Vec<User>>,
+}
+
+impl FromRow<'_, PgRow> for Room {
+    fn from_row(row: &'_ PgRow) -> Result<Self, sqlx::Error> {
+        let users = Some(
+            row.try_get::<'_, Vec<i32>, _>("id")?
+                .into_iter()
+                .zip(row.try_get::<'_, Vec<String>, _>("name")?)
+                .zip(row.try_get::<'_, Vec<String>, _>("rit_username")?)
+                .zip(row.try_get::<'_, Vec<Option<String>>, _>("csh_username")?)
+                .map(|(((uid, name), rit_username), csh_username)| User {
+                    uid,
+                    name,
+                    rit_username,
+                    csh_username,
+                })
+                .collect(),
+        );
+
+        Ok(Self {
+            number: row.try_get::<'_, i32, _>("room_number")?,
+            users,
+        })
+    }
 }
 
 impl PartialOrd for Room {

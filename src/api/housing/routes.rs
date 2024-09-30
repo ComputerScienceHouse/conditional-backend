@@ -3,13 +3,13 @@ use actix_web::{
     web::{Data, Json},
     HttpResponse, Responder,
 };
-use sqlx::{query, query_as};
+use sqlx::{query, query_as, Postgres};
 
 use crate::{
     api::lib::UserError,
     app::AppState,
     auth_service::CSHAuth,
-    schema::{api::Room, db},
+    schema::api::{Room, User},
 };
 
 #[utoipa::path(
@@ -29,8 +29,9 @@ use crate::{
 #[get("/queue", wrap = "CSHAuth::member_and_intro()")]
 pub async fn get_housing_queue(state: Data<AppState>) -> Result<impl Responder, UserError> {
     let queue = query_as!(
-        db::ID,
-        "select uid as id from housing_queue order by datetime_added"
+        User,
+        "select uid, name, rit_username, csh_username from housing_queue left join \"user\" u on \
+         uid = u.id order by datetime_added"
     )
     .fetch_all(&state.db)
     .await?;
@@ -87,45 +88,8 @@ pub async fn remove_from_housing_queue(
     Ok(HttpResponse::NoContent().finish())
 }
 
-fn merge_rooms(mut a: Vec<Room>, b: Vec<Room>) -> Vec<Room> {
-    a.extend(b);
-    a.sort();
-
-    let mut rooms = Vec::new();
-
-    for room in a {
-        if rooms
-            .last()
-            .map(|r: &Room| r.number)
-            .is_some_and(|n| n == room.number)
-        {
-            let r = rooms.last_mut().unwrap();
-            r.users = r
-                .users
-                .as_mut()
-                .map(|u| {
-                    u.extend(room.users.unwrap_or_default());
-                    u
-                })
-                .cloned();
-            r.names = r
-                .names
-                .as_mut()
-                .map(|u| {
-                    u.extend(room.names.unwrap_or_default());
-                    u
-                })
-                .cloned();
-        } else {
-            rooms.push(room);
-        }
-    }
-
-    Vec::new()
-}
-
 #[utoipa::path(
-    context_path = "/housing/queue",
+    context_path = "/housing/rooms",
     tag = "Housing",
     responses(
         (status = 200, description = "Get all rooms", body = Vec<Room>),
@@ -134,16 +98,8 @@ fn merge_rooms(mut a: Vec<Room>, b: Vec<Room>) -> Vec<Room> {
         (status = 500, description = "Internal Server Error"),
     ),
 )]
-#[delete("/queue", wrap = "CSHAuth::evals_only()")]
+#[get("/rooms", wrap = "CSHAuth::member_only()")]
 pub async fn get_rooms(state: Data<AppState>) -> Result<impl Responder, UserError> {
-    let freshman_rooms = query_as!(
-        Room,
-        "select array_agg(uid order by uid) as users, array_agg(name order by uid) as names, room \
-         as number from freshman_rooms left join \"user\" on uid = id group by room"
-    )
-    .fetch_all(&state.db)
-    .await?;
-
     let (onfloor_members, onfloor_rooms): (Vec<_>, Vec<_>) = state
         .ldap
         .get_onfloor_members()
@@ -151,22 +107,21 @@ pub async fn get_rooms(state: Data<AppState>) -> Result<impl Responder, UserErro
         .map_err(|_| UserError::ServerError)?
         .into_iter()
         .filter(|l| l.room_number.is_some())
-        .map(|l| (l.uid, l.room_number.unwrap()))
+        .map(|l| (l.rit_username, l.room_number.unwrap()))
         .unzip();
 
-    let member_rooms = query_as!(
-        Room,
-        "select array_agg(id order by id) as users, array_agg(name order by id) as names, room as \
-         \"number!\" from (select unnest($1::varchar[]) as username, unnest($2::int4[]) as room) \
-         as u left join \"user\" on u.username = \"user\".csh_username where room is not null \
-         group by room",
-        Some(onfloor_members.as_slice()),
-        Some(onfloor_rooms.as_slice()),
+    let rooms = query_as::<Postgres, Room>(
+        "select array_agg(id order by id) as id, array_agg(name order by id) as name, \
+         array_agg(rit_username order by id) as rit_username, array_agg(csh_username order by id) \
+         as csh_username, room_number from (select unnest($1::varchar[]) as username, \
+         unnest($2::int4[]) as room_number union all select rit_username, room from \
+         freshman_rooms left join \"user\" on uid = id) u left join \"user\" on username = \
+         rit_username group by room_number",
     )
+    .bind(Some(onfloor_members.as_slice()))
+    .bind(Some(onfloor_rooms.as_slice()))
     .fetch_all(&state.db)
     .await?;
-
-    let rooms = merge_rooms(freshman_rooms, member_rooms);
 
     Ok(HttpResponse::Ok().json(rooms))
 }
