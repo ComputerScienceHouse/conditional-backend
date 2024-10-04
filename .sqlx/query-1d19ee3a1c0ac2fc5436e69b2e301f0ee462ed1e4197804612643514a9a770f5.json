@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n        json_build_object(\n            'id', om.id,\n            'meeting_type', om.meeting_type,\n            'name', om.\"name\",\n            'timestamp', om.datetime,\n            'approved', om.approved\n        ) AS \"meeting!: sqlx::types::Json<api::Meeting>\",\n        CASE WHEN count(u.id) = 0 THEN '[]' ELSE json_agg(u.*) END AS \"attendees!: sqlx::types::Json<Vec<db::User>>\"\n        FROM other_meeting om\n        LEFT JOIN om_attendance oa\n            ON om.id = oa.om_id\n        LEFT JOIN \"user\" u\n            ON u.id = oa.uid\n        WHERE om.datetime < $3::timestamp\n        GROUP BY om.id\n        ORDER BY om.datetime DESC, om.id DESC\n        LIMIT $1::int4\n        OFFSET $2::int4\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "meeting!: sqlx::types::Json<api::Meeting>",
+        "type_info": "Json"
+      },
+      {
+        "ordinal": 1,
+        "name": "attendees!: sqlx::types::Json<Vec<db::User>>",
+        "type_info": "Json"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Timestamp"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "1d19ee3a1c0ac2fc5436e69b2e301f0ee462ed1e4197804612643514a9a770f5"
+}

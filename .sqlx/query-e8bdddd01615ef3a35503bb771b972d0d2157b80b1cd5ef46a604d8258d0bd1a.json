@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select\nm.uid, \nm.name,\nm.seminars,\nm.directorships,\ncount(ha.attendance_status)\n    filter(where ha.attendance_status = 'Absent') as missed_hms\nfrom (\n    select\n        u.name,\n        u.id as uid,\n        count(om.approved)\n            filter(where om.meeting_type = 'Seminar') as seminars,\n        count(om.approved)\n            filter(where om.meeting_type = 'Directorship') as directorships\n    from \"user\" u\n    left join om_attendance oma on u.id = oma.uid\n    left join other_meeting om on oma.om_id = om.id\n    left join intro_eval_block ieb on ieb.id = (select max(id) from intro_eval_block)\n    where\n        not is_intro\n        and u.csh_username in (select UNNEST($1::varchar[]))\n        and u.name in (select UNNEST($2::varchar[]))\n        and om.datetime between ieb.start_date and ieb.end_date\n    group by\n        u.id, u.name\n    ) as m\n    left join hm_attendance ha on m.uid = ha.uid\n    group by\n        m.uid,\n        m.name,\n        m.seminars,\n        m.directorships\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "uid",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "seminars",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "directorships",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "missed_hms",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "VarcharArray",
+        "VarcharArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "e8bdddd01615ef3a35503bb771b972d0d2157b80b1cd5ef46a604d8258d0bd1a"
+}

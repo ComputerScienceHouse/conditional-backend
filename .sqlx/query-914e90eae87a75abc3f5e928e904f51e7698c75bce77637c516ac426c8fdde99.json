@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select uid, year, semester as \"semester: SemesterEnum\" from \n        coop where year >= $1::int4 and uid = $2::int4",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "uid",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "year",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "semester: SemesterEnum",
+        "type_info": {
+          "Custom": {
+            "name": "semester_enum",
+            "kind": {
+              "Enum": [
+                "Fall",
+                "Spring",
+                "Summer"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "914e90eae87a75abc3f5e928e904f51e7698c75bce77637c516ac426c8fdde99"
+}

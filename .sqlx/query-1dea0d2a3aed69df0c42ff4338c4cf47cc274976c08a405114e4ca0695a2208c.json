@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT batch.id as \"id!\", batch.name AS \"name!\", batch.creator AS \"creator!\", bi.conditions AS \n         \"conditions!\", bi.members AS \"members!\"\nFROM (SELECT cb.bid, cb.conditions, array_agg(cb.uid) AS members\nFROM (\nSELECT batches.bid\n, array_agg(concat(batches.criterion, ' ', batches.comparison, ' ', batches.value)) AS \n         conditions\n, batches.mname, batches.uid\nFROM (SELECT baid.bid, baid.mname, baid.uid, bc.criterion, bc.comparison, bc.value,\nCASE\nWHEN baid.bu THEN TRUE\nWHEN bc.criterion = 'Packet' AND bc.comparison = 'Greater' THEN evals.packet > bc.value\nWHEN bc.criterion = 'Packet' AND bc.comparison = 'Equal' THEN evals.packet = bc.value\nWHEN bc.criterion = 'Packet' AND bc.comparison = 'Less' THEN evals.packet < bc.value\nWHEN bc.criterion = 'Seminar' AND bc.comparison = 'Greater' THEN evals.ss > bc.value\nWHEN bc.criterion = 'Seminar' AND bc.comparison = 'Equal' THEN evals.ss = bc.value\nWHEN bc.criterion = 'Seminar' AND bc.comparison = 'Less' THEN evals.ss < bc.value\nWHEN bc.criterion = 'Directorship' AND bc.comparison = 'Greater' THEN evals.ds > bc.value\nWHEN bc.criterion = 'Directorship' AND bc.comparison = 'Equal' THEN evals.ds = bc.value\nWHEN bc.criterion = 'Directorship' AND bc.comparison = 'Less' THEN evals.ds < bc.value\nWHEN bc.criterion = 'Missed_HM' AND bc.comparison = 'Greater' THEN evals.hm > bc.value\nWHEN bc.criterion = 'Missed_HM' AND bc.comparison = 'Equal' THEN evals.hm = bc.value\nWHEN bc.criterion = 'Missed_HM' AND bc.comparison = 'Less' THEN evals.hm < bc.value\nELSE false\nEND AS cond_passed\nFROM (SELECT baid.bid, baid.mname, baid.uid, bool_or(baid.bu) AS bu\nFROM (SELECT *\nFROM (SELECT bu.batch_id, evals.name, bu.uid, TRUE AS bu\nFROM batch_user bu\nLEFT JOIN (\nSELECT evals.uid, evals.name\nFROM (SELECT *\nFROM UNNEST($1::varchar[], $2::int4[], $3::int8[], $4::int8[], $5::int8[], $6::int8[])) \nAS evals(\"name\", uid, ss, ds, hm, packet)) evals\nON bu.uid = evals.uid) AS frosh_info\nUNION (\nSELECT batch.id, evals.name, evals.uid, \n         FALSE AS bu\nFROM batch,\n\t(SELECT * FROM UNNEST($1::varchar[], $2::int4[], $3::int8[], $4::int8[], $5::int8[], \n         $6::int8[])) AS evals(\"name\", uid, ss, ds, hm, packet)\nwhere batch.id = $7)) AS baid(bid, mname, uid, bu)\nGROUP BY baid.bid, baid.mname, baid.uid) AS baid\nLEFT JOIN batch_condition bc ON bc.batch_id=baid.bid\nLEFT JOIN (\nSELECT evals.uid, evals.ss, evals.ds, evals.hm, evals.packet\nFROM (SELECT *\nFROM UNNEST($1::varchar[], $2::int4[], $3::int8[], $4::int8[], $5::int8[], $6::int8[])) \nAS evals(\"name\", uid, ss, ds, hm, packet)\n) evals ON evals.uid=baid.uid\nWHERE NOT EXISTS (SELECT 1 FROM batch_pull bp WHERE bp.approved AND bp.uid=baid.uid)) AS \n         batches\nGROUP BY batches.bid, batches.mname, batches.uid\nHAVING bool_and(batches.cond_passed)) AS cb\nGROUP BY cb.bid, cb.conditions) AS bi --thats gay\nLEFT JOIN batch ON bi.bid=batch.id\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "name!",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "creator!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "conditions!",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 4,
+        "name": "members!",
+        "type_info": "Int4Array"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "VarcharArray",
+        "Int4Array",
+        "Int8Array",
+        "Int8Array",
+        "Int8Array",
+        "Int8Array",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "1dea0d2a3aed69df0c42ff4338c4cf47cc274976c08a405114e4ca0695a2208c"
+}

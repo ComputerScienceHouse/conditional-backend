@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO other_meeting (datetime, name, meeting_type, approved)\n                        VALUES ($1, $2, $3, $4) RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamp",
+        "Varchar",
+        {
+          "Custom": {
+            "name": "meeting_type_enum",
+            "kind": {
+              "Enum": [
+                "Seminar",
+                "Directorship"
+              ]
+            }
+          }
+        },
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "fe7b5f8a008cbbb5ea8fd8e1264e4f6f57690f4f8b325927752755528e505d4d"
+}

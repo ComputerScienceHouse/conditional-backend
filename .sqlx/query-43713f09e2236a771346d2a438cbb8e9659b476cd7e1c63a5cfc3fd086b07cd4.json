@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into major_project(uid, name, description, date, status) values($1,$2,$3,$4,$5)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Varchar",
+        "Text",
+        "Date",
+        {
+          "Custom": {
+            "name": "major_project_status_enum",
+            "kind": {
+              "Enum": [
+                "Pending",
+                "Passed",
+                "Failed"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "43713f09e2236a771346d2a438cbb8e9659b476cd7e1c63a5cfc3fd086b07cd4"
+}

@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select uid, name, rit_username, csh_username from housing_queue left join \"user\" u on uid = u.id order by datetime_added",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "uid",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "rit_username",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "csh_username",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "9db33910f4cdee1b119dcfc45e1a69998968921de2d62ee9765c77203811cf2b"
+}

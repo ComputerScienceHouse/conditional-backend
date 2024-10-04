@@ -1,0 +1,68 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select\n    s.name,\n    s.username,\n    s.uid,\n    s.seminars,\n    s.directorships,\n    packet.signatures,\n    packet.max_signatures,\n    count(ha.attendance_status)\n    filter(where ha.attendance_status = 'Absent') as missed_hms\n    from\n        (\n        select\n            u.name,\n            u.rit_username as username,\n            u.id as uid,\n            count(om.approved)\n        filter(where om.meeting_type = 'Seminar') as seminars,\n            count(om.approved)\n        filter(where om.meeting_type = 'Directorship') as directorships\n        from\n            \"user\" u\n        left join om_attendance oma on u.id = oma.uid\n        left join other_meeting om on oma.om_id = om.id\n        left join intro_eval_data ied on u.id = ied.uid\n        left join intro_eval_block ieb on ieb.id = ied.eval_block_id\n        where\n            ied.eval_block_id = $5 and u.is_intro and om.datetime between ieb.start_date and ieb.end_date\n        group by\n            u.rit_username,\n            u.id) as s\n    left join hm_attendance ha on\n        s.uid = ha.uid\n    left join unnest($1::varchar[],\n        $2::varchar[],\n        $3::int8[],\n        $4::int8[]) as\n        packet(username,\n        name,\n        signatures,\n        max_signatures) on\n        packet.username = s.username\n    where\n        packet.name is not null\n        and s.seminars is not null\n        and s.directorships is not null\n        and packet.signatures is not null\n        and packet.max_signatures is not null\n    group by\n        s.name,\n        s.username,\n        s.uid,\n        s.seminars,\n        s.directorships,\n        packet.signatures,\n        packet.max_signatures\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "username",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "uid",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "seminars",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "directorships",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "signatures",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "max_signatures",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "missed_hms",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "VarcharArray",
+        "VarcharArray",
+        "Int8Array",
+        "Int8Array",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "0c84e9e9e1c395cd292d5c94ec48916aab0b4f898ab934ccbeccbf463b120691"
+}

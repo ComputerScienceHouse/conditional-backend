@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into batch_pull(uid, puller, reason, approved) values($1::int4, $2::int4, $3::varchar, false) on conflict on constraint batch_pull_pkey do update set reason = $3::varchar",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "535458040f62285f41cecfc917698c76a349a9118460a8a87aae25eb477039fe"
+}

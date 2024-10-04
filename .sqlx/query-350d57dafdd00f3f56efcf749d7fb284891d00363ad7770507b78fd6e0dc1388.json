@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into intro_eval_data(uid, eval_block_id, social_events, other_comments, status)\n                values($1::int4,$2::int4,$3::varchar,$4::varchar,$5::eval_status_enum)\n                on conflict on constraint intro_eval_data_pkey do update\n                set social_events = $3::varchar, other_comments = $4::varchar\n                where intro_eval_data.uid = $1::int4 and intro_eval_data.eval_block_id = $2::int4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Varchar",
+        "Varchar",
+        {
+          "Custom": {
+            "name": "eval_status_enum",
+            "kind": {
+              "Enum": [
+                "Pending",
+                "Passed",
+                "Failed"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "350d57dafdd00f3f56efcf749d7fb284891d00363ad7770507b78fd6e0dc1388"
+}

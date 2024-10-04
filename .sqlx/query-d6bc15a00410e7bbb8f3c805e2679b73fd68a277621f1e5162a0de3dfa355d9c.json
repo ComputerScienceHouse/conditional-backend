@@ -1,0 +1,57 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            mp.id,\n            u.id uid,\n            mp.name,\n            mp.description,\n            mp.status as \"status: db::MajorProjectStatusEnum\"\n        FROM major_project mp \n        LEFT JOIN \"user\" u\n        \tON u.id = mp.uid\n        WHERE date > $1\n        order by date",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "uid",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "status: db::MajorProjectStatusEnum",
+        "type_info": {
+          "Custom": {
+            "name": "major_project_status_enum",
+            "kind": {
+              "Enum": [
+                "Pending",
+                "Passed",
+                "Failed"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "d6bc15a00410e7bbb8f3c805e2679b73fd68a277621f1e5162a0de3dfa355d9c"
+}

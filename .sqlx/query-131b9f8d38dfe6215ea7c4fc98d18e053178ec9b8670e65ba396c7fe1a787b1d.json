@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select room from freshman_rooms where uid = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "room",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "131b9f8d38dfe6215ea7c4fc98d18e053178ec9b8670e65ba396c7fe1a787b1d"
+}

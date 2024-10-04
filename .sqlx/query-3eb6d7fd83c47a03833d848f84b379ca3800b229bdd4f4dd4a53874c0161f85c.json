@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into housing_queue values($1, now()::timestamp)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3eb6d7fd83c47a03833d848f84b379ca3800b229bdd4f4dd4a53874c0161f85c"
+}

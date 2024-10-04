@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT id\n                FROM \"user\" u\n                WHERE u.ipa_unique_id = $1::varchar\n                OR u.intro_id = $1::varchar\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6162219a74c1a98898d9b9de93daba0776fa7126f4fce18421e62fbfcd48a003"
+}

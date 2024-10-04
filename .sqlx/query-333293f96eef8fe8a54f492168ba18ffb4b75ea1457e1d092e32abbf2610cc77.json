@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update other_meeting set approved = true where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "333293f96eef8fe8a54f492168ba18ffb4b75ea1457e1d092e32abbf2610cc77"
+}

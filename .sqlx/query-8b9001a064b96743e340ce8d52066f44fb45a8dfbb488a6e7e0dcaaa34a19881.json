@@ -1,0 +1,54 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO batch_condition(value, criterion, comparison, batch_id) SELECT value as \"value!\", criterion AS \"criterion!: BatchCriterion\", comparison AS \"comparison!:_\", batch_id as \"batch_id!\" FROM UNNEST($1::int4[], $2::batch_criterion_enum[], $3::batch_comparison_enum[], $4::int4[]) as a(value, criterion, comparison, batch_id)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4Array",
+        {
+          "Custom": {
+            "name": "_batch_criterion_enum",
+            "kind": {
+              "Array": {
+                "Custom": {
+                  "name": "batch_criterion_enum",
+                  "kind": {
+                    "Enum": [
+                      "Seminar",
+                      "Directorship",
+                      "Packet",
+                      "Missed_HM"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "_batch_comparison_enum",
+            "kind": {
+              "Array": {
+                "Custom": {
+                  "name": "batch_comparison_enum",
+                  "kind": {
+                    "Enum": [
+                      "Greater",
+                      "Equal",
+                      "Less"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "Int4Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8b9001a064b96743e340ce8d52066f44fb45a8dfbb488a6e7e0dcaaa34a19881"
+}

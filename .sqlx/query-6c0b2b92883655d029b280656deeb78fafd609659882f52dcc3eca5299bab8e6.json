@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO om_attendance (uid, om_id)\n            SELECT uid, om_id\n            FROM UNNEST($1::int4[], $2::int4[]) AS tmp(uid, om_id)\n            ON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4Array",
+        "Int4Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6c0b2b92883655d029b280656deeb78fafd609659882f52dcc3eca5299bab8e6"
+}

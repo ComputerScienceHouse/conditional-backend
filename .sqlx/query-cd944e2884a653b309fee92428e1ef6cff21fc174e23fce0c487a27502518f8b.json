@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from freshman_rooms where room = $1 and uid = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cd944e2884a653b309fee92428e1ef6cff21fc174e23fce0c487a27502518f8b"
+}

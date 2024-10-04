@@ -1,0 +1,68 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n            om.id,\n            om.meeting_type as \"meeting_type!: MeetingType\",\n            om.datetime as \"timestamp\",\n            om.name,\n            om.approved\n        FROM other_meeting om\n        LEFT JOIN om_attendance oa\n            ON om.id = oa.om_id\n        LEFT JOIN \"user\" u\n            ON u.id = oa.uid\n        WHERE om.approved\n        AND (u.ipa_unique_id = $1::varchar OR u.intro_id = $1::varchar)\n        AND om.meeting_type = $2::meeting_type_enum\n        AND om.datetime > $3::timestamp\n        ORDER BY om.datetime DESC, om.id DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "meeting_type!: MeetingType",
+        "type_info": {
+          "Custom": {
+            "name": "meeting_type_enum",
+            "kind": {
+              "Enum": [
+                "Seminar",
+                "Directorship"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "timestamp",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 3,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "approved",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        {
+          "Custom": {
+            "name": "meeting_type_enum",
+            "kind": {
+              "Enum": [
+                "Seminar",
+                "Directorship"
+              ]
+            }
+          }
+        },
+        "Timestamp"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "baa1f0bc5d811584fadf958c9f1ad805cea0c648f3670a1a2e514181b8e0b54e"
+}

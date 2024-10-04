@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update \"user\" set ipa_unique_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a8ac19f285d178f9bb3229721c99536403e70116d008594c3ae4b61b16b3ef40"
+}

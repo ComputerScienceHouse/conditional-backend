@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update batch_pull set approved = true where uid = $1::int4 and puller = $2::int4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "536f3c2c762edc5675dd5a4a4cdacac3c034232382441bcfad3421257b23492f"
+}

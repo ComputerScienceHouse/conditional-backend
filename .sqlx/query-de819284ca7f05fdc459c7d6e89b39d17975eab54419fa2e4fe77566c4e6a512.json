@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE hm_attendance SET attendance_status = $1, excuse = $2 WHERE uid = $3 AND house_meeting_id = $4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "hm_attendance_status_enum",
+            "kind": {
+              "Enum": [
+                "Attended",
+                "Absent",
+                "Excused"
+              ]
+            }
+          }
+        },
+        "Varchar",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "de819284ca7f05fdc459c7d6e89b39d17975eab54419fa2e4fe77566c4e6a512"
+}

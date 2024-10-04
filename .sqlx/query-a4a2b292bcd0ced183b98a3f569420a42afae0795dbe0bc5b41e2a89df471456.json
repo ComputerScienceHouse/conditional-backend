@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select date, excuse from hm_attendance left join house_meeting on hm_attendance.house_meeting_id = house_meeting.id where date > $1 and uid = $2 AND attendance_status != 'Attended'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 1,
+        "name": "excuse",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Date",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "a4a2b292bcd0ced183b98a3f569420a42afae0795dbe0bc5b41e2a89df471456"
+}

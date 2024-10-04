@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE intro_eval_data\n        SET status = $2::eval_status_enum\n        FROM UNNEST($1::int4[]) as u\n        WHERE uid = u\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4Array",
+        {
+          "Custom": {
+            "name": "eval_status_enum",
+            "kind": {
+              "Enum": [
+                "Pending",
+                "Passed",
+                "Failed"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6fbbf60d3e6a287c22eb52048bcc6ba86f0350348de6ca98279eaea4e6b478c4"
+}

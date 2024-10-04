@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM om_attendance\n                        WHERE om_id = $1 AND uid = ANY ($2::int4[])",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6dfa4894be501921870a8f98236a26044e9f1792ae6fb3376ff1401fa8144e4b"
+}

@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select uid, count(*) from hm_attendance hma left join house_meeting hm on hma.house_meeting_id = hm.id where attendance_status = 'Absent' and date > $1 group by uid having uid in (select unnest($2::int4[]))",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "uid",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Date",
+        "Int4Array"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "be49e7d200c7c9f0f2592bae5333f7ebc06876a5c90007b7791e5141a4f048a9"
+}
