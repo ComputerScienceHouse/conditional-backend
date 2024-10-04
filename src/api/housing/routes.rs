@@ -5,7 +5,7 @@ use actix_web::{
     web::{Data, Json},
     HttpResponse, Responder,
 };
-use ldap3::{Mod, SearchEntry};
+use ldap3::Mod;
 use sqlx::{query, query_as, Postgres};
 
 use crate::{
@@ -45,8 +45,9 @@ pub async fn get_housing_queue(state: Data<AppState>) -> Result<impl Responder, 
 #[utoipa::path(
     context_path = "/housing/queue",
     tag = "Housing",
+    request_body = ID,
     responses(
-        (status = 200, description = "Add a user to housing queue", body = Vec<ID>),
+        (status = 200, description = "Add a user to housing queue"),
         (status = 400, description = "Bad Request"),
         (status = 401, description = "Unauthorized"),
         (status = 500, description = "Internal Server Error"),
@@ -71,8 +72,9 @@ pub async fn add_to_housing_queue(
 #[utoipa::path(
     context_path = "/housing/queue",
     tag = "Housing",
+    request_body = ID,
     responses(
-        (status = 200, description = "Remove a user from housing queue", body = Vec<ID>),
+        (status = 200, description = "Remove a user from housing queue"),
         (status = 400, description = "Bad Request"),
         (status = 401, description = "Unauthorized"),
         (status = 500, description = "Internal Server Error"),
@@ -132,8 +134,9 @@ pub async fn get_rooms(state: Data<AppState>) -> Result<impl Responder, UserErro
 #[utoipa::path(
     context_path = "/housing/room",
     tag = "Housing",
+    request_body = RoomRequest,
     responses(
-        (status = 200, description = "Add one user to a room", body = RoomRequest),
+        (status = 200, description = "Add one user to a room"),
         (status = 400, description = "Bad Request"),
         (status = 401, description = "Unauthorized"),
         (status = 500, description = "Internal Server Error"),
@@ -184,8 +187,9 @@ pub async fn add_user_to_room(
 #[utoipa::path(
     context_path = "/housing/room",
     tag = "Housing",
+    request_body = RoomRequest,
     responses(
-        (status = 200, description = "Remove one user from a room", body = RoomRequest),
+        (status = 200, description = "Remove one user from a room"),
         (status = 400, description = "Bad Request"),
         (status = 401, description = "Unauthorized"),
         (status = 500, description = "Internal Server Error"),
