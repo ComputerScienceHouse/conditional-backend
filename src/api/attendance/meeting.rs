@@ -349,3 +349,32 @@ pub async fn modify_attendance(
     .await?;
     Ok(HttpResponse::Ok().finish())
 }
+
+#[utoipa::path(
+    context_path="/api/attendance",
+    tag = "Attendance",
+    request_body = i32,
+    responses(
+        (status = 200, description = "Modified Attendance"),
+        (status = 401, description = "Unauthorized"),
+        (status = 400, description = "Bad Request"),
+        (status = 500, description = "Internal Server Error"),
+    ),
+    security(
+        ("csh" = ["eboard"]),
+    )
+)]
+#[patch("/attendance", wrap = "CSHAuth::eboard_only()")]
+pub async fn approve_attendance(
+    state: Data<AppState>,
+    body: Json<i32>,
+) -> Result<impl Responder, UserError> {
+    query!(
+        "update other_meeting set approved = true where id = $1",
+        body.into_inner()
+    )
+    .execute(&state.db)
+    .await?;
+
+    Ok(HttpResponse::NoContent().finish())
+}
