@@ -16,6 +16,7 @@ impl Default for SearchAttrs {
                 String::from("mobile"),
                 String::from("ibutton"),
                 String::from("drinkBalance"),
+                String::from("ipaUniqueID"),
             ],
         }
     }

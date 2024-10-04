@@ -145,7 +145,7 @@ impl LdapClient {
         let res = self
             .ldap_search(
                 "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
-                format!("(!(memberOf=*10weeks*))").as_str(),
+                "(!(memberOf=*10weeks*))",
                 None,
             )
             .await?;
