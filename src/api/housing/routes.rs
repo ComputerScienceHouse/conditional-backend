@@ -277,10 +277,33 @@ pub async fn get_member_room_number(
         .ldap
         .get_attr(request.as_str(), "roomNumber")
         .await
-        .map_err(|_| UserError::ServerError)?
-        .first()
-        .cloned()
-        .map(SearchEntry::construct);
+        .map_err(|_| UserError::ServerError)?;
 
-    Ok(HttpResponse::Ok().json(room.as_ref().and_then(|r| r.attrs.get("room_number"))))
+    Ok(HttpResponse::Ok().json(room))
+}
+
+#[utoipa::path(
+    context_path = "/housing/room/member/{uid}",
+    tag = "Housing",
+    responses(
+        (status = 200, description = "Get a member's room number"),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error"),
+    ),
+)]
+#[get("/points/{uid}", wrap = "CSHAuth::evals_only()")]
+pub async fn get_housing_points_by_uid(
+    state: Data<AppState>,
+    request: Json<String>,
+) -> Result<impl Responder, UserError> {
+    let request = request.into_inner();
+
+    let points = &state
+        .ldap
+        .get_attr(request.as_str(), "housingPoints")
+        .await
+        .map_err(|_| UserError::ServerError)?;
+
+    Ok(HttpResponse::Ok().json(points))
 }

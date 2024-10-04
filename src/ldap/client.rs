@@ -2,7 +2,8 @@
 
 use async_trait::async_trait;
 use deadpool::managed::{self, Metrics};
-use ldap3::{drive, Ldap, LdapConnAsync, LdapError, Mod, ResultEntry};
+use jwt::Store;
+use ldap3::{drive, Ldap, LdapConnAsync, LdapError, Mod, ResultEntry, SearchEntry};
 use log::{debug, info};
 use rand::prelude::SliceRandom;
 use rand::SeedableRng;
@@ -224,13 +225,17 @@ impl LdapClient {
             .collect())
     }
 
-    pub async fn get_attr(&self, user: &str, attr: &str) -> anyhow::Result<Vec<ResultEntry>> {
+    pub async fn get_attr(&self, user: &str, attr: &str) -> anyhow::Result<Option<Vec<String>>> {
         Ok(self
             .ldap_search(
                 "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
                 format!("(uid={user})").as_str(),
                 Some(SearchAttrs::new(&[attr])),
             )
-            .await?)
+            .await?
+            .first()
+            .cloned()
+            .map(SearchEntry::construct)
+            .and_then(|r| r.attrs.get(attr).cloned()))
     }
 }
