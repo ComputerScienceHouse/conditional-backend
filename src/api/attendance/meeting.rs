@@ -11,7 +11,7 @@ use utoipa::{IntoParams, ToSchema};
 use validator::Validate;
 
 use actix_web::{
-    delete, get, patch, post,
+    delete, get, patch, post, put,
     web::{Data, Json},
     HttpResponse, Responder,
 };
@@ -353,9 +353,9 @@ pub async fn modify_attendance(
 #[utoipa::path(
     context_path="/api/attendance",
     tag = "Attendance",
-    request_body = i32,
+    request_body = ID,
     responses(
-        (status = 200, description = "Modified Attendance"),
+        (status = 204, description = "Approved Attendance"),
         (status = 401, description = "Unauthorized"),
         (status = 400, description = "Bad Request"),
         (status = 500, description = "Internal Server Error"),
@@ -364,7 +364,7 @@ pub async fn modify_attendance(
         ("csh" = ["eboard"]),
     )
 )]
-#[patch("/attendance", wrap = "CSHAuth::eboard_only()")]
+#[put("/approve", wrap = "CSHAuth::eboard_only()")]
 pub async fn approve_attendance(
     state: Data<AppState>,
     body: Json<i32>,

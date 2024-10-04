@@ -37,6 +37,7 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             get_attendance_history,
             delete_meeting,
             modify_attendance,
+            approve_attendance,
             get_intro_form,
             get_all_intro_forms,
             submit_intro_form,
@@ -151,6 +152,7 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                     .service(get_user_directorships)
                     .service(get_user_seminars)
                     .service(get_attendance_history)
+                    .service(approve_attendance)
                     .service(delete_meeting)
                     .service(modify_attendance)
                     .service(submit_hm_attendance)
