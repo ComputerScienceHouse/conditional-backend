@@ -223,4 +223,14 @@ impl LdapClient {
             .map(LdapUser::from)
             .collect())
     }
+
+    pub async fn get_attr(&self, user: &str, attr: &str) -> anyhow::Result<Vec<ResultEntry>> {
+        Ok(self
+            .ldap_search(
+                "cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
+                format!("(uid={user})").as_str(),
+                Some(SearchAttrs::new(&[attr])),
+            )
+            .await?)
+    }
 }

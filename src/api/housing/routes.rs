@@ -5,7 +5,7 @@ use actix_web::{
     web::{Data, Json},
     HttpResponse, Responder,
 };
-use ldap3::Mod;
+use ldap3::{Mod, SearchEntry};
 use sqlx::{query, query_as, Postgres};
 
 use crate::{
@@ -229,4 +229,58 @@ pub async fn remove_user_from_room(
     }
 
     Ok(HttpResponse::NoContent().finish())
+}
+
+#[utoipa::path(
+    context_path = "/housing/room/freshman/{uid}",
+    tag = "Housing",
+    responses(
+        (status = 200, description = "Get a freshman's room number"),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error"),
+    ),
+)]
+#[get("/room/freshman/{uid}", wrap = "CSHAuth::evals_only()")]
+pub async fn get_freshman_room_number(
+    state: Data<AppState>,
+    request: Json<i32>,
+) -> Result<impl Responder, UserError> {
+    let request = request.into_inner();
+
+    let room = query!("select room from freshman_rooms where uid = $1", request)
+        .fetch_one(&state.db)
+        .await?
+        .room;
+
+    Ok(HttpResponse::Ok().json(room))
+}
+
+#[utoipa::path(
+    context_path = "/housing/room/member/{uid}",
+    tag = "Housing",
+    responses(
+        (status = 200, description = "Get a member's room number"),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error"),
+    ),
+)]
+#[get("/room/member/{uid}", wrap = "CSHAuth::evals_only()")]
+pub async fn get_member_room_number(
+    state: Data<AppState>,
+    request: Json<String>,
+) -> Result<impl Responder, UserError> {
+    let request = request.into_inner();
+
+    let room = &state
+        .ldap
+        .get_attr(request.as_str(), "roomNumber")
+        .await
+        .map_err(|_| UserError::ServerError)?
+        .first()
+        .cloned()
+        .map(SearchEntry::construct);
+
+    Ok(HttpResponse::Ok().json(room.as_ref().and_then(|r| r.attrs.get("room_number"))))
 }
