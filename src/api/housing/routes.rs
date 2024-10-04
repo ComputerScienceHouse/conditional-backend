@@ -140,7 +140,7 @@ pub async fn get_rooms(state: Data<AppState>) -> Result<impl Responder, UserErro
     ),
 )]
 #[post("/room", wrap = "CSHAuth::evals_only()")]
-pub async fn add_room(
+pub async fn add_user_to_room(
     state: Data<AppState>,
     request: Json<RoomRequest>,
 ) -> Result<impl Responder, UserError> {
@@ -173,6 +173,56 @@ pub async fn add_room(
                 )
                 .as_str(),
                 vec![Mod::Replace("roomNumber".to_string(), set)],
+            )
+            .await
+            .map_err(|_| UserError::ServerError)?;
+    }
+
+    Ok(HttpResponse::NoContent().finish())
+}
+
+#[utoipa::path(
+    context_path = "/housing/room",
+    tag = "Housing",
+    responses(
+        (status = 200, description = "Remove one user from a room", body = RoomRequest),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error"),
+    ),
+)]
+#[post("/room", wrap = "CSHAuth::evals_only()")]
+pub async fn remove_user_from_room(
+    state: Data<AppState>,
+    request: Json<RoomRequest>,
+) -> Result<impl Responder, UserError> {
+    let request = request.into_inner();
+
+    if request.is_freshman {
+        let uid = request
+            .uid
+            .parse::<i32>()
+            .map_err(|_| UserError::ValueError {
+                value: request.uid,
+                field: "UID".to_string(),
+            })?;
+        query!(
+            "delete from freshman_rooms where room = $1 and uid = $2",
+            request.number,
+            uid
+        )
+        .execute(&state.db)
+        .await?;
+    } else {
+        state
+            .ldap
+            .apply_mods(
+                format!(
+                    "cn={},cn=users,cn=accounts,dc=csh,dc=rit,dc=edu",
+                    request.uid
+                )
+                .as_str(),
+                vec![Mod::Delete("roomNumber".to_string(), HashSet::new())],
             )
             .await
             .map_err(|_| UserError::ServerError)?;

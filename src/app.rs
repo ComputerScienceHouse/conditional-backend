@@ -64,6 +64,8 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
             add_to_housing_queue,
             remove_from_housing_queue,
             get_rooms,
+            add_user_to_room,
+            remove_user_from_room,
             get_all_batches,
             create_batch,
             pull_user,
@@ -202,7 +204,9 @@ pub fn configure_app(cfg: &mut web::ServiceConfig) {
                     .service(get_housing_queue)
                     .service(add_to_housing_queue)
                     .service(remove_from_housing_queue)
-                    .service(get_rooms),
+                    .service(get_rooms)
+                    .service(add_user_to_room)
+                    .service(remove_user_from_room),
             ),
     )
     .service(SwaggerUi::new("/docs/{_:.*}").url("/api-doc/openapi.json", openapi));
