@@ -678,23 +678,27 @@ async fn migrate() -> Result<(), Box<dyn std::error::Error>> {
     let old_pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(
-            "postgresql://conditional:alDeEe5vFt25QjpBpm6WhoCG2NHSYNPF@postgres.csh.rit.edu/\
-             conditional",
+            env::var("CONDITIONAL_NEW_URL")
+                .expect("CONDITIONAL_NEW_URL not set")
+                .as_str(),
         )
         .await?;
-    // .connect("postgresql://conditionaldev:y3vNyHE9Qp9m9QQ3xTeiu3qztZKzwc@
-    // postgres.csh.rit.edu/conditionaldev").await?;
     let new_pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(
-            "postgresql://conditionalnew:yCrhk5gF62Bu9QZyQfAVn8*jEPMxv!CS@postgres.csh.rit.edu/\
-             conditionalnew",
+            env::var("CONDITIONAL_NEW_URL")
+                .expect("CONDITIONAL_NEW_URL not set")
+                .as_str(),
         )
         .await?;
 
     let frosh_pool = PgPoolOptions::new()
         .max_connections(5)
-        .connect("postgresql://keycloak:stimulating39;others@postgres.csh.rit.edu/keycloak")
+        .connect(
+            env::var("KEYCLOAK_URL")
+                .expect("KEYCLOAK_URL not set")
+                .as_str(),
+        )
         .await?;
 
     let mut transaction = new_pool.begin().await?;
