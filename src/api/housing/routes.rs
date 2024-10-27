@@ -247,12 +247,11 @@ pub async fn remove_user_from_room(
 )]
 #[get("/room/freshman/{uid}", wrap = "CSHAuth::evals_only()")]
 pub async fn get_freshman_room_number(
+    path: Path<(i32,)>,
     state: Data<AppState>,
-    request: Json<i32>,
 ) -> Result<impl Responder, UserError> {
-    let request = request.into_inner();
 
-    let room = query!("select room from freshman_rooms where uid = $1", request)
+    let room = query!("select room from freshman_rooms where uid = $1", path.0)
         .fetch_one(&state.db)
         .await?
         .room;
