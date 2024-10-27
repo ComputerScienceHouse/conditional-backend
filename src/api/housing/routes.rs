@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use actix_web::{
     delete, get, post,
-    web::{Data, Json},
+    web::{Data, Json, Path},
     HttpResponse, Responder,
 };
 use ldap3::Mod;
@@ -16,7 +16,7 @@ use crate::{
 };
 
 #[utoipa::path(
-    context_path = "/housing/queue",
+    context_path = "/api/housing",
     tag = "Housing",
     responses(
         (status = 200, description = "Get all members in housing queue", body = Vec<ID>),
@@ -43,7 +43,7 @@ pub async fn get_housing_queue(state: Data<AppState>) -> Result<impl Responder, 
 }
 
 #[utoipa::path(
-    context_path = "/housing/queue",
+    context_path = "/api/housing",
     tag = "Housing",
     request_body = ID,
     responses(
@@ -70,7 +70,7 @@ pub async fn add_to_housing_queue(
 }
 
 #[utoipa::path(
-    context_path = "/housing/queue",
+    context_path = "/api/housing",
     tag = "Housing",
     request_body = ID,
     responses(
@@ -94,7 +94,7 @@ pub async fn remove_from_housing_queue(
 }
 
 #[utoipa::path(
-    context_path = "/housing/rooms",
+    context_path = "/api/housing",
     tag = "Housing",
     responses(
         (status = 200, description = "Get all rooms", body = Vec<Room>),
@@ -132,7 +132,7 @@ pub async fn get_rooms(state: Data<AppState>) -> Result<impl Responder, UserErro
 }
 
 #[utoipa::path(
-    context_path = "/housing/room",
+    context_path = "/api/housing",
     tag = "Housing",
     request_body = RoomRequest,
     responses(
@@ -185,7 +185,7 @@ pub async fn add_user_to_room(
 }
 
 #[utoipa::path(
-    context_path = "/housing/room",
+    context_path = "/api/housing",
     tag = "Housing",
     request_body = RoomRequest,
     responses(
@@ -195,7 +195,7 @@ pub async fn add_user_to_room(
         (status = 500, description = "Internal Server Error"),
     ),
 )]
-#[post("/room", wrap = "CSHAuth::evals_only()")]
+#[delete("/room", wrap = "CSHAuth::evals_only()")]
 pub async fn remove_user_from_room(
     state: Data<AppState>,
     request: Json<RoomRequest>,
@@ -236,7 +236,7 @@ pub async fn remove_user_from_room(
 }
 
 #[utoipa::path(
-    context_path = "/housing/room/freshman/{uid}",
+    context_path = "/api/housing",
     tag = "Housing",
     responses(
         (status = 200, description = "Get a freshman's room number"),
@@ -261,7 +261,7 @@ pub async fn get_freshman_room_number(
 }
 
 #[utoipa::path(
-    context_path = "/housing/room/member/{uid}",
+    context_path = "/api/housing",
     tag = "Housing",
     responses(
         (status = 200, description = "Get a member's room number"),
@@ -272,14 +272,13 @@ pub async fn get_freshman_room_number(
 )]
 #[get("/room/member/{uid}", wrap = "CSHAuth::evals_only()")]
 pub async fn get_member_room_number(
+    path: Path<(String,)>,
     state: Data<AppState>,
-    request: Json<String>,
 ) -> Result<impl Responder, UserError> {
-    let request = request.into_inner();
 
     let room = &state
         .ldap
-        .get_attr(request.as_str(), "roomNumber")
+        .get_attr(path.0.as_str(), "roomNumber")
         .await
         .map_err(|_| UserError::ServerError)?;
 
@@ -287,7 +286,7 @@ pub async fn get_member_room_number(
 }
 
 #[utoipa::path(
-    context_path = "/housing/room/member/{uid}",
+    context_path = "/api/housing",
     tag = "Housing",
     responses(
         (status = 200, description = "Get a member's room number"),
@@ -296,7 +295,7 @@ pub async fn get_member_room_number(
         (status = 500, description = "Internal Server Error"),
     ),
 )]
-#[get("/points/{uid}", wrap = "CSHAuth::evals_only()")]
+#[get("/room/member/{uid}", wrap = "CSHAuth::evals_only()")]
 pub async fn get_housing_points_by_uid(
     state: Data<AppState>,
     request: Json<String>,
@@ -305,7 +304,7 @@ pub async fn get_housing_points_by_uid(
 
     let points = &state
         .ldap
-        .get_attr(request.as_str(), "housingPoints")
+        .get_attr(request.as_str(), "roomNumber")
         .await
         .map_err(|_| UserError::ServerError)?;
 
